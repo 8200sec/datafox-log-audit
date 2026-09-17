@@ -1,4 +1,4 @@
-﻿<!-- Copyright 2026 OpenObserve Inc.
+<!-- Copyright 2026 OpenObserve Inc.
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published by
@@ -99,11 +99,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
               :src="
                 getImageURL(
                   isDark
-                    ? 'images/common/openobserve_latest_dark_2.svg'
-                    : 'images/common/openobserve_latest_light_2.svg',
+                    ? branding.darkLogo
+                    : branding.logo,
                 )
               "
-              :alt="raw('OpenObserve')"
+              :alt="branding.shortName"
             />
           </a>
         </div>
@@ -180,6 +180,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
         <!-- Enterprise/Cloud: ghost-muted badge (informational, opens about dialog) -->
         <!-- Open Source: primary CTA to drive upgrades -->
         <OButton
+          v-if="branding.showEnterpriseBanner"
           :variant="
             config.isEnterprise === 'true' || config.isCloud === 'true'
               ? 'outline-primary'
@@ -242,6 +243,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
           <!-- SLACK COMMUNITY LINK -->
           <OButton
+            v-if="branding.showUpstreamBranding"
             variant="ghost"
             size="icon-toolbar"
             data-test="menu-link-slack-item"
@@ -447,6 +449,7 @@ import ODropdownGroup from "@/lib/overlay/Dropdown/ODropdownGroup.vue";
 
 import { getImageURL } from "@/utils/zincutils";
 import { chartColor } from "@/utils/chartTheme";
+import { branding } from "@/constants/branding";
 
 export default defineComponent({
   name: "HeaderComponent",
@@ -571,7 +574,7 @@ export default defineComponent({
       const isCloud = props.config.isCloud === "true";
 
       if (isCloud) {
-        return t("about.header_button.cloud_features", { product: raw("OpenObserve") });
+        return t("about.header_button.cloud_features", { product: raw(branding.productName) });
       } else if (isEnterprise) {
         return t("about.header_button.enterprise_edition");
       } else {
@@ -660,6 +663,7 @@ export default defineComponent({
       isDark,
       t,
       raw,
+      branding,
       getImageURL,
       enterpriseButtonText,
       ingestionQuotaPercentage,

@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="flex h-screen">
     <!-- Left Banner Section -->
     <div
@@ -9,12 +9,12 @@
           <span class="mb-3">
             <img
               class="-ml-px h-10"
-              src="@/assets/images/common/openobserve_logo_light.svg"
-              :alt="t('login.openObserveLogoAlt')"
+              :src="getImageURL(branding.logo)"
+              :alt="branding.shortName"
             />
           </span>
           <div class="text-text-inverse mt-1.25 text-2xl leading-8.25 font-semibold">
-            {{ t("login.getStartedBannerMessage") }}
+            {{ t("login.getStartedBannerMessage", { product: raw(branding.productName) }) }}
           </div>
         </div>
       </div>
@@ -99,7 +99,7 @@
 
       <!-- Footer -->
       <div class="text-text-secondary absolute bottom-5 mb-4 text-sm">
-        {{ t("login.copyrightNotice") }} <span id="year">{{ new Date().getFullYear() }}</span>
+        {{ t("login.copyrightNotice", { company: branding.companyName }) }} <span id="year">{{ new Date().getFullYear() }}</span>
       </div>
     </div>
   </div>
@@ -115,7 +115,9 @@ import { makeGetStartedSchema, getStartedDefaults, type GetStartedForm } from ".
 import { useStore } from "vuex";
 import billings from "@/services/billings";
 import { toast } from "@/lib/feedback/Toast/useToast";
-import { useI18nTyped } from "@/types/i18n";
+import { raw, useI18nTyped } from "@/types/i18n";
+import { getImageURL } from "@/utils/queryUtils";
+import { branding } from "@/constants/branding";
 const store = useStore();
 const { t } = useI18nTyped();
 

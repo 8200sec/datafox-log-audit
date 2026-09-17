@@ -34,10 +34,16 @@ import { buildVersionChecker } from "./utils/buildVersionChecker";
 import { toast } from "@/lib/feedback/Toast/useToast";
 import { bootstrapTheme } from "@/utils/themeManager";
 import { raw } from "@/types/i18n";
+import { branding } from "@/constants/branding";
 
 // Apply the resolved theme synchronously before the app mounts so the first
 // paint already uses the correct colors (no flash of the base stylesheet theme).
 bootstrapTheme();
+
+// Brand the document from the single source of truth (see constants/branding.ts).
+document.title = branding.productName;
+const faviconEl = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+if (faviconEl) faviconEl.href = branding.favicon;
 
 const app = createApp(App);
 const router = createRouter(store);

@@ -1,4 +1,4 @@
-﻿<!-- Copyright 2026 OpenObserve Inc.
+<!-- Copyright 2026 OpenObserve Inc.
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published by
@@ -24,8 +24,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
             <img
               :src="
                 isDark
-                  ? getImageURL('images/common/openobserve_latest_dark_2.svg')
-                  : getImageURL('images/common/openobserve_latest_light_2.svg')
+                  ? getImageURL(branding.darkLogo)
+                  : getImageURL(branding.logo)
               "
               class="block max-w-55"
               width="220"
@@ -456,6 +456,7 @@ import { defineComponent, ref, onMounted } from "vue";
 import { useStore } from "vuex";
 import { useTheme } from "@/composables/useTheme";
 import { getImageURL } from "../utils/zincutils";
+import { branding } from "@/constants/branding";
 import { raw, useI18nTyped } from "@/types/i18n";
 import { useRouter } from "vue-router";
 import config from "@/aws-exports";
@@ -568,6 +569,7 @@ export default defineComponent({
       config,
       pageData,
       getImageURL,
+      branding,
       formatDate,
       licenseData,
       loadingLicense,

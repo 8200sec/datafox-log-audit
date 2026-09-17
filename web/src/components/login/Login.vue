@@ -54,8 +54,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
           "
           :src="
             isDark
-              ? getImageURL('images/common/openobserve_latest_dark_2.svg')
-              : getImageURL('images/common/openobserve_latest_light_2.svg')
+              ? getImageURL(branding.darkLogo)
+              : getImageURL(branding.logo)
           "
         />
       </div>
@@ -67,8 +67,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
           "
           :src="
             isDark
-              ? getImageURL('images/common/openobserve_latest_dark_2.svg')
-              : getImageURL('images/common/openobserve_latest_light_2.svg')
+              ? getImageURL(branding.darkLogo)
+              : getImageURL(branding.logo)
           "
         />
       </div>
@@ -192,6 +192,7 @@ import { openobserveRum } from "@openobserve/browser-rum";
 import { useReo } from "@/services/reodotdev_analytics";
 import { toast } from "@/lib/feedback/Toast/useToast";
 import { makeLoginSchema, loginDefaults, type LoginForm } from "./Login.schema";
+import { branding } from "@/constants/branding";
 
 export default defineComponent({
   name: "PageLogin",
@@ -434,6 +435,7 @@ export default defineComponent({
       innerTab: ref("signup"),
       store,
       getImageURL,
+      branding,
       loginAsInternalUser,
       showSSO,
       showInternalLogin,
