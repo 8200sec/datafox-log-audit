@@ -15,7 +15,6 @@ node_modules/
 /target/
 /bin/
 /examples/
-/docs/
 
 # ---------- env files ----------
 /.env*
@@ -77,3 +76,7 @@ tests/ui-testing/playwright-tests/utils/auth/user.json
 
 __pytest__/
 __pycache__/
+
+# ---------- DataFox Log Audit ----------
+# Prebuilt protoc binary (recreated per docs/BUILD.md); never commit it.
+/tools/
