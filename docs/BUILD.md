@@ -68,13 +68,16 @@ The API server listens on port `5080`. `.env` in the repo root overrides process
 env — check it before running.
 
 > **Status:** frontend is fully verified (build + dev server). The backend `cargo
-> build` requires git-cloning three GitHub dependencies (`openobserve/datafusion`,
-> `openobserve/vortex`, `openobserve/datafusion-functions-json`) into
-> `~/.cargo/git`; on this network GitHub is intermittently unreachable (DNS
-> pollution → `SSL_ERROR_SYSCALL`), so the first dependency fetch may need retries
-> until a network window opens. Once those are cached, the build itself is offline.
-> `CARGO_NET_GIT_FETCH_WITH_CLI=true` is used to route cargo's git fetches through
-> the system `git` (more reliable than libgit2 on macOS).
+> build` must first git-clone the git dependencies declared in `Cargo.toml` into
+> `~/.cargo/git` — `openobserve/datafusion`, `openobserve/vortex`,
+> `openobserve/datafusion-functions-json`, `openobserve/promql-parser`,
+> `openobserve/rmcp-openapi`, `openobserve/vector`, `openobserve/tantivy`,
+> `openobserve/arrow-rs-object-store`, and `mattsse/chromiumoxide`. On this network
+> GitHub is intermittently unreachable (DNS pollution → `SSL_ERROR_SYSCALL`), so
+> the first dependency fetch may need retries until a network window opens. Once
+> those are cached, the build itself is offline.
+> `CARGO_NET_GIT_FETCH_WITH_CLI=true` routes cargo's git fetches through the system
+> `git` (more reliable than libgit2 on macOS).
 
 ## 2. Frontend (Vue 3 + Vite) — verified ✅
 
