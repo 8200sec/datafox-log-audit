@@ -23,7 +23,7 @@ import type { LocationQuery, LocationQueryRaw, RouteLocationRaw } from "vue-rout
 import config from "@/aws-exports";
 import { resolveTraceSearchMode, type TraceSearchMode } from "@/ts/interfaces/traces/trace.types";
 import store from "@/stores";
-import Home from "@/views/HomeView.vue";
+import AuditHome from "@/views/AuditHome.vue";
 import ImportDashboard from "@/views/Dashboards/ImportDashboard.vue";
 import About from "@/views/About.vue";
 import ComingSoon from "@/views/ComingSoon.vue";
@@ -204,7 +204,7 @@ const useRoutes = () => {
     {
       path: "",
       name: "home",
-      component: Home,
+      component: AuditHome,
       meta: {
         keepAlive: true,
         titleKey: "menu.home",

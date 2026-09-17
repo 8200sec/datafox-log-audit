@@ -1257,6 +1257,26 @@
     "userManagement": "User Management",
     "systemSettings": "System Settings"
   },
+  "auditHome": {
+    "subtitle": "Security audit overview at a glance",
+    "todayLogs": "Today's Logs",
+    "logSources": "Log Sources",
+    "securityEvents": "Security Events",
+    "highRiskEvents": "High-risk Events",
+    "logTrend": "Log Trend",
+    "riskLevels": "Risk Levels",
+    "logSourcesTop": "Top Log Sources",
+    "recentSecurityEvents": "Recent Security Events",
+    "riskHigh": "High",
+    "riskMedium": "Medium",
+    "riskLow": "Low",
+    "time": "Time",
+    "event": "Event",
+    "source": "Source",
+    "riskLevel": "Risk Level",
+    "status": "Status",
+    "sampleData": "Sample data"
+  },
   "rum": {
     "noSessionReplay": "No session replay available",
     "loadingSessionReplay": "Loading session replay…",

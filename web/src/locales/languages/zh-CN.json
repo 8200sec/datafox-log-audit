@@ -1257,6 +1257,26 @@
     "userManagement": "用户管理",
     "systemSettings": "系统设置"
   },
+  "auditHome": {
+    "subtitle": "安全审计概览",
+    "todayLogs": "今日日志",
+    "logSources": "日志源",
+    "securityEvents": "安全事件",
+    "highRiskEvents": "高危事件",
+    "logTrend": "日志趋势",
+    "riskLevels": "风险等级",
+    "logSourcesTop": "日志来源 Top",
+    "recentSecurityEvents": "最近安全事件",
+    "riskHigh": "高",
+    "riskMedium": "中",
+    "riskLow": "低",
+    "time": "时间",
+    "event": "事件",
+    "source": "来源",
+    "riskLevel": "风险等级",
+    "status": "状态",
+    "sampleData": "示例数据"
+  },
   "rum": {
     "noSessionReplay": "没有可用的会话回放",
     "loadingSessionReplay": "正在加载会话回放…",
