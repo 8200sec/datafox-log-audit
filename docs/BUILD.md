@@ -88,12 +88,25 @@ npm install
 npm run build      # = type-check (vue-tsc) + vite build → web/dist/
 ```
 
-Run the dev server (Vite on `:8081`, base `/web/`, proxies to backend `:5080`):
+Before the first dev run, point the UI at the backend. Without this the UI falls
+back to same-origin (`:8081`) and login/API calls fail, because Vite does **not**
+proxy to the backend — the UI calls the backend directly (cross-origin; the
+backend's CORS allows it):
+
+```shell
+cd web
+printf 'VITE_OPENOBSERVE_ENDPOINT=http://localhost:5080\n' > .env   # gitignored
+```
+
+Run the dev server (Vite on `:8081`, base `/web/`):
 
 ```shell
 cd web
 npm run dev        # → http://localhost:8081/web/
 ```
+
+Login with the admin seeded by the backend's `ZO_ROOT_USER_EMAIL` /
+`ZO_ROOT_USER_PASSWORD` (see §1).
 
 ### Environment workarounds required on this machine
 
