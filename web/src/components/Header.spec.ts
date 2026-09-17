@@ -1,4 +1,4 @@
-﻿// Copyright 2026 OpenObserve Inc.
+// Copyright 2026 OpenObserve Inc.
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -1095,7 +1095,7 @@ describe("Header Component", () => {
       }
     });
 
-    it("should render default OpenObserve logo when both custom logos are null", () => {
+    it("should render default DataFox logo when both custom logos are null", () => {
       const wrapper = createWrapper({
         mountType: "mount",
         storeOverrides: {
@@ -1114,11 +1114,11 @@ describe("Header Component", () => {
       // Verify no custom logo images are rendered
       expect(html).not.toContain("data:image; base64,");
 
-      // Verify default OpenObserve logo is rendered instead
+      // Verify default DataFox logo is rendered instead
       expect(html).toContain("openobserve-logo");
       const imgs = wrapper.findAll('[data-test="header-openobserve-logo"]');
       expect(imgs.length).toBeGreaterThan(0);
-      expect(imgs[0].attributes("src")).toContain("openobserve");
+      expect(imgs[0].attributes("src")).toContain("datafox");
     });
 
     it("should display red warning icon when quota is exactly 95%", () => {
