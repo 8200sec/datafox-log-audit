@@ -498,6 +498,7 @@
   },
   "common": {
     "copiedToClipboard": "Copied to clipboard",
+    "comingSoon": "Coming soon",
     "inlineEdit": {
       "autoHint": "Click to rename. Until you do, this name is generated from your configuration and keeps up as you change it."
     },
@@ -1236,7 +1237,25 @@
     "ariaWithNotifications": "{label} ({count} notifications)",
     "infra": "Infra",
     "databases": "Databases",
-    "topQueries": "Top Queries"
+    "topQueries": "Top Queries",
+    "logCenter": "Log Center",
+    "logSearch": "Log Search",
+    "savedQueries": "Saved Queries",
+    "logIngestion": "Log Ingestion",
+    "logSources": "Log Sources",
+    "streams": "Streams",
+    "parseRules": "Parse Rules",
+    "security": "Security Audit",
+    "securityEvents": "Security Events",
+    "auditPolicies": "Audit Policies",
+    "alertCenter": "Alert Center",
+    "analysis": "Analysis Center",
+    "dashboards": "Dashboards",
+    "auditReports": "Audit Reports",
+    "aiAnalysis": "AI Analysis",
+    "management": "System Management",
+    "userManagement": "User Management",
+    "systemSettings": "System Settings"
   },
   "rum": {
     "noSessionReplay": "No session replay available",

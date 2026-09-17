@@ -348,52 +348,6 @@ export default defineComponent({
       : undefined;
     const selectedOrg = ref(store.state.selectedOrganization);
     const userClickedOrg = ref(store.state.selectedOrganization);
-    const isIncidentsEnabled = computed(() => {
-      return (
-        (config.isEnterprise == "true" || config.isCloud == "true") &&
-        store.state.zoConfig.incidents_enabled
-      );
-    });
-
-    // Workflows — enterprise/cloud only (FD3). Build-time gate, no runtime flag.
-    // Enterprise/cloud build AND the backend `/config` flag `workflows_enabled`
-    // (enterprise `O2_WORKFLOWS_ENABLED`). Reactive so the menu picks it up
-    // regardless of whether the config response arrived before or after mount.
-    // `=== true`, not truthy: /config is fetched without await, so the flag is
-    // briefly undefined and the entry must stay hidden rather than flash in.
-    const isWorkflowsEnabled = computed(
-      () =>
-        (config.isEnterprise == "true" || config.isCloud == "true") &&
-        store.state.zoConfig?.workflows_enabled === true,
-    );
-
-    // Backend `/config` flag `online_evals_enabled` — controlled by
-    // enterprise `O2_EVAL_ENABLED`. Reactive so the menu picks it up regardless
-    // of whether the config response arrived before or after this component
-    // mounted.
-    const isOnlineEvalsEnabled = computed(() => {
-      return (
-        (config.isEnterprise == "true" || config.isCloud == "true") &&
-        Boolean(store.state.zoConfig?.online_evals_enabled)
-      );
-    });
-
-    // The AI Observability menu entry itself ships on true OSS builds too —
-    // Monitor (LLM Insights + Sessions) needs no backend flag, unlike the rest
-    // of the module. AIObservabilityShell (Index.vue) shows only the Monitor
-    // group there; Evaluate/Experiment/Annotate/Agent Graph/Agent Behavior stay
-    // behind `isOnlineEvalsEnabled` as before.
-    const isOssBuild = !(config.isEnterprise == "true" || config.isCloud == "true");
-    const isAiObservabilityMenuVisible = computed(() => isOnlineEvalsEnabled.value || isOssBuild);
-
-    // Backend `/config` flag `synthetics_enabled` — `ZO_SYNTHETICS_ENABLED`, and
-    // no longer an enterprise build check: synthetics ships in OSS, and only the
-    // private-agent path behind it is enterprise. Reactive so the menu picks it
-    // up regardless of whether the config response arrived before or after mount.
-    const isSyntheticsEnabled = computed(() => {
-      return Boolean(store.state.zoConfig?.synthetics_enabled);
-    });
-
     // Real entries carry `identifier`; the placeholder literal only sets label/value.
     const orgOptions = ref<Array<{ identifier?: string; [key: string]: unknown }>>([
       { label: Number, value: String },
@@ -414,72 +368,89 @@ export default defineComponent({
         name: "home",
       },
       {
-        title: t("menu.search"),
+        title: t("menu.logSearch"),
         icon: "search",
         link: "/logs",
         name: "logs",
       },
       {
-        title: t("menu.metrics"),
-        icon: "bar-chart",
-        link: "/metrics",
-        name: "metrics",
+        title: t("menu.savedQueries"),
+        icon: "history",
+        link: "/logs/search-history",
+        name: "searchHistory",
       },
       {
-        title: t("menu.traces"),
-        icon: "account-tree",
-        link: "/traces",
-        name: "traces",
-      },
-      {
-        title: raw("RUM"),
-        icon: "devices",
-        link: "/rum",
-        name: "rum",
-      },
-      {
-        title: t("menu.dashboard"),
-        icon: "dashboard",
-        link: "/dashboards",
-        name: "dashboards",
-      },
-      {
-        title: t("menu.index"),
-        icon: "window",
-        link: "/streams",
-        name: "streams",
-      },
-      {
-        title: t("menu.alerts"),
-        icon: "shield-alert-outline",
-        link: "/alerts",
-        name: "alertList",
-      },
-      // Directly after Alerts, since an SLO is what an SLO alert burns against.
-      {
-        title: t("menu.slos"),
-        icon: "target",
-        link: "/slos",
-        name: "sloList",
-      },
-      {
-        title: t("menu.ingestion"),
+        title: t("menu.logSources"),
         icon: "data-plus-line",
         link: "/ingestion",
         name: "ingestion",
       },
       {
-        title: t("menu.iam"),
+        title: t("menu.streams"),
+        icon: "window",
+        link: "/streams",
+        name: "streams",
+      },
+      {
+        title: t("menu.parseRules"),
+        icon: "function",
+        link: "/functions",
+        name: "functionList",
+      },
+      {
+        title: t("menu.securityEvents"),
+        icon: "notifications-active",
+        link: "/security/events",
+        name: "securityEvents",
+      },
+      {
+        title: t("menu.auditPolicies"),
+        icon: "rule",
+        link: "/security/policies",
+        name: "auditPolicies",
+      },
+      {
+        title: t("menu.alertCenter"),
+        icon: "shield-alert-outline",
+        link: "/alerts",
+        name: "alertList",
+      },
+      {
+        title: t("menu.dashboards"),
+        icon: "dashboard",
+        link: "/dashboards",
+        name: "dashboards",
+      },
+      {
+        title: t("menu.auditReports"),
+        icon: "description",
+        link: "/reports",
+        name: "reports",
+      },
+      {
+        title: t("menu.aiAnalysis"),
+        icon: "auto-awesome",
+        link: "/ai/analysis",
+        name: "aiAnalysis",
+      },
+      {
+        title: t("menu.userManagement"),
         icon: "manage-accounts",
         link: "/iam",
         display: store.state?.currentuser?.role == "admin" ? true : false,
         name: "iam",
       },
       {
-        title: t("menu.settings"),
+        title: t("menu.systemSettings"),
         icon: "settings",
         link: "/settings",
         name: "settings",
+      },
+      {
+        title: t("menu.about"),
+        icon: "info",
+        link: "/about",
+        name: "about",
       },
     ]);
 
@@ -637,10 +608,6 @@ export default defineComponent({
       if (needsFullConfig()) {
         getConfig();
       } else {
-        if (config.isCloud == "false") {
-          linksList.value = mainLayoutMixin.setup().leftNavigationLinks(linksList, t);
-          filterMenus();
-        }
         menuReady.value = true;
         await nextTick();
         // if rum enabled then setUser to capture session details.
@@ -650,117 +617,9 @@ export default defineComponent({
       }
     });
 
-    const updateIncidentsMenu = () => {
-      if (isIncidentsEnabled.value) {
-        const alertIndex = linksList.value.findIndex((link) => link.name === "alertList");
-
-        const incidentExists = linksList.value.some((link) => link.name === "incidentList");
-
-        if (alertIndex !== -1 && !incidentExists) {
-          linksList.value.splice(alertIndex + 1, 0, {
-            title: t("menu.incidents"),
-            icon: "notifications-active",
-            link: "/incidents",
-            name: "incidentList",
-          });
-        }
-      }
-    };
-
-    // Insert the Workflows entry after Alerts. Idempotent.
-    const updateWorkflowsMenu = () => {
-      const existingIndex = linksList.value.findIndex((link) => link.name === "workflows");
-
-      if (isWorkflowsEnabled.value) {
-        if (existingIndex !== -1) return;
-
-        const anchor = linksList.value.findIndex((link) => link.name === "alertList");
-        if (anchor === -1) return;
-
-        linksList.value.splice(anchor + 1, 0, {
-          title: t("menu.workflows"),
-          icon: "schema",
-          link: "/workflows",
-          name: "workflows",
-        });
-      } else if (existingIndex !== -1) {
-        // The entry must be REMOVED, not just skipped: the menu is rebuilt on
-        // org switch and `workflows_enabled` can differ per deployment, so an
-        // add-only guard would leave a stale entry behind.
-        linksList.value.splice(existingIndex, 1);
-      }
-    };
-
-    // If `/config` resolves after this component mounted (or the flag flips),
-    // keep the menu in sync — same contract as the other flag-driven entries.
-    watch(isWorkflowsEnabled, () => updateWorkflowsMenu(), { immediate: false });
     const splitterModel = ref(100);
     const selectedLanguage: any = langList.find((l) => l.code == getLocale()) || langList[0];
-
-    // Insert / remove the AI Observability menu entry based on the live config
-    // flag. Position: directly after Traces. Idempotent — safe to call from
-    // multiple lifecycle hooks.
-    const updateAIObservabilityMenu = () => {
-      const existingIndex = linksList.value.findIndex(
-        (link: any) => link.name === "aiObservability",
-      );
-
-      if (isAiObservabilityMenuVisible.value) {
-        if (existingIndex !== -1) return;
-        const tracesIndex = linksList.value.findIndex((link: any) => link.name === "traces");
-        const insertAt = tracesIndex === -1 ? linksList.value.length : tracesIndex + 1;
-        linksList.value.splice(insertAt, 0, {
-          title: t("menu.aiObservability"),
-          icon: "auto-awesome",
-          link: "/ai",
-          name: "aiObservability",
-        });
-      } else if (existingIndex !== -1) {
-        linksList.value.splice(existingIndex, 1);
-      }
-    };
-
-    // If `/config` resolves after this component mounted (or if the flag
-    // ever flips at runtime), keep the menu in sync.
-    watch(isAiObservabilityMenuVisible, () => updateAIObservabilityMenu(), { immediate: false });
-
-    const updateSyntheticMenu = () => {
-      const existingIndex = linksList.value.findIndex((l: any) => l.name === "synthetics");
-
-      if (!isSyntheticsEnabled.value) {
-        if (existingIndex !== -1) linksList.value.splice(existingIndex, 1);
-        return;
-      }
-      if (existingIndex !== -1) return;
-
-      const incidentIndex = linksList.value.findIndex((l: any) => l.name === "incidentList");
-      const alertIndex = linksList.value.findIndex((l: any) => l.name === "alertList");
-      const insertAt =
-        incidentIndex !== -1
-          ? incidentIndex + 1
-          : alertIndex !== -1
-            ? alertIndex + 1
-            : linksList.value.length;
-
-      linksList.value.splice(insertAt, 0, {
-        title: t("menu.synthetic"),
-        icon: "radar",
-        link: "/synthetics",
-        name: "synthetics",
-      });
-    };
-
-    // Keep the menu in sync if /config resolves after mount.
-    watch(isSyntheticsEnabled, () => updateSyntheticMenu(), {
-      immediate: false,
-    });
-
     const filterMenus = () => {
-      updateIncidentsMenu();
-      updateWorkflowsMenu();
-      updateSyntheticMenu();
-      updateAIObservabilityMenu();
-
       const disableMenus = new Set(
         store.state.zoConfig?.custom_hide_menus?.split(",")?.filter((val: string) => val?.trim()) ||
           [],
@@ -775,19 +634,10 @@ export default defineComponent({
       });
     };
 
-    // additional links based on environment and conditions
-    if (config.isCloud == "true") {
-      linksList.value = mainLayoutMixin.setup().leftNavigationLinks(linksList, t);
-      filterMenus();
-    } else {
-      linksList.value.splice(7, 0, {
-        title: t("menu.report"),
-        icon: "description",
-        link: "/reports",
-        name: "reports",
-      });
-      filterMenus();
-    }
+    // Hidden-module entries (metrics/traces/RUM/synthetics/AI observability) are
+    // intentionally absent from linksList; filterMenus only applies admin
+    // custom_hide_menus overrides now.
+    filterMenus();
 
     //orgIdentifier query param exists then clear the localstorage and store.
     if (store.state.selectedOrganization != null) {
@@ -1169,10 +1019,6 @@ export default defineComponent({
       await configService
         .get_config_full(orgIdentifier)
         .then(async (res: any) => {
-          if (config.isCloud == "false") {
-            linksList.value = mainLayoutMixin.setup().leftNavigationLinks(linksList, t);
-          }
-
           store.dispatch("setConfig", res.data);
           fullConfigOrg = orgIdentifier;
           await nextTick();

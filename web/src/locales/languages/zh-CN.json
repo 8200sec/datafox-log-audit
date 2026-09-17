@@ -498,6 +498,7 @@
   },
   "common": {
     "copiedToClipboard": "已复制到剪贴板",
+    "comingSoon": "即将推出",
     "inlineEdit": {
       "autoHint": "点击重命名。在您重命名之前，此名称会根据您的配置自动生成，并在您更改配置时随之更新。"
     },
@@ -1236,7 +1237,25 @@
     "ariaWithNotifications": "{label} ({count} 条通知)",
     "infra": "基础设施",
     "databases": "数据库",
-    "topQueries": "热门查询"
+    "topQueries": "热门查询",
+    "logCenter": "日志中心",
+    "logSearch": "日志查询",
+    "savedQueries": "保存查询",
+    "logIngestion": "日志接入",
+    "logSources": "日志源",
+    "streams": "数据流",
+    "parseRules": "解析规则",
+    "security": "安全审计",
+    "securityEvents": "安全事件",
+    "auditPolicies": "审计策略",
+    "alertCenter": "告警中心",
+    "analysis": "分析中心",
+    "dashboards": "仪表盘",
+    "auditReports": "审计报表",
+    "aiAnalysis": "AI 分析",
+    "management": "系统管理",
+    "userManagement": "用户管理",
+    "systemSettings": "系统设置"
   },
   "rum": {
     "noSessionReplay": "没有可用的会话回放",

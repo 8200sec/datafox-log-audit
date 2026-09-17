@@ -26,6 +26,7 @@ import store from "@/stores";
 import Home from "@/views/HomeView.vue";
 import ImportDashboard from "@/views/Dashboards/ImportDashboard.vue";
 import About from "@/views/About.vue";
+import ComingSoon from "@/views/ComingSoon.vue";
 import MemberSubscription from "@/views/MemberSubscription.vue";
 import Error404 from "@/views/Error404.vue";
 import ShortUrl from "@/views/ShortUrl.vue";
@@ -528,6 +529,36 @@ const useRoutes = () => {
       meta: {
         keepAlive: true,
         titleKey: "menu.about",
+      },
+    },
+    {
+      // DataFox shell placeholder — security events arrive in a later phase.
+      path: "security/events",
+      name: "securityEvents",
+      component: ComingSoon,
+      meta: {
+        keepAlive: false,
+        titleKey: "menu.securityEvents",
+      },
+    },
+    {
+      // DataFox shell placeholder — audit policies arrive in a later phase.
+      path: "security/policies",
+      name: "auditPolicies",
+      component: ComingSoon,
+      meta: {
+        keepAlive: false,
+        titleKey: "menu.auditPolicies",
+      },
+    },
+    {
+      // DataFox shell placeholder — AI analysis arrives in a later phase.
+      path: "ai/analysis",
+      name: "aiAnalysis",
+      component: ComingSoon,
+      meta: {
+        keepAlive: false,
+        titleKey: "menu.aiAnalysis",
       },
     },
     {

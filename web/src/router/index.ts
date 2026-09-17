@@ -16,6 +16,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { getDecodedUserInfo, getPath, mergeRoutes } from "@/utils/zincutils";
 import { gt } from "@/types/i18n";
+import { branding } from "@/constants/branding";
 import segment from "@/services/segment_analytics";
 import config from "@/aws-exports";
 
@@ -86,9 +87,9 @@ export default function (store: any) {
     // because a navigation guard runs outside any component setup.
     if (to.meta && to.meta.titleKey) {
       // The brand prefix is a product noun, never translated; the page name is.
-      document.title = `OpenObserve - ${gt(to.meta.titleKey)}`;
+      document.title = `${branding.shortName} - ${gt(to.meta.titleKey)}`;
     } else {
-      document.title = "OpenObserve";
+      document.title = branding.productName;
     }
 
     const isAuthenticated = store.state.loggedIn;

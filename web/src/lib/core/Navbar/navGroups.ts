@@ -125,215 +125,96 @@ export interface NavGroupDef {
 
 export const NAV_GROUPS: NavGroupDef[] = [
   {
-    key: "reliability",
-    titleKey: "menu.reliability",
-    icon: "shield",
-    parentLink: "/alerts",
-    absorbs: ["alertList", "sloList", "incidentList"],
+    key: "logCenter",
+    titleKey: "menu.logCenter",
+    icon: "search",
+    parentLink: "/logs",
+    absorbs: ["logs", "searchHistory"],
     children: [
-      // ── Alerts ──────────────────────────────────────────────────────────
-      // These four are the alerting cluster, and they carry a peer tab strip
-      // (AlertSectionTabs) on every one of their pages. Same ORDER and same
-      // LABEL in both — a rail that disagreed with the tabs would make the
-      // two feel like different places.
-      //
-      // Destinations and Templates moved out of Settings: they are alerting
-      // configuration, not deployment configuration. None of the three have a
-      // rail entry of their own, so they ride on Alerts being present —
-      // hiding `alertList` via custom_hide_menus takes its plumbing with it.
-      // "All Alerts", not "Alerts": it sits directly under an "Alerts" header,
-      // and a row repeating its own header names nothing. The peer tab uses the
-      // same string for the same reason — the page title above it says "Alerts".
+      { titleKey: "menu.logSearch", icon: "search", name: "logs", requires: "logs" },
       {
-        titleKey: "alerts.allAlerts",
-        icon: "shield-alert-outline",
-        name: "alertList",
-        requires: "alertList",
-        categoryKey: "menu.alerts",
-      },
-      {
-        titleKey: "alert_destinations.header",
-        icon: "location-on",
-        name: "alertDestinations",
-        requires: "alertList",
-        categoryKey: "menu.alerts",
-      },
-      {
-        titleKey: "alert_templates.header",
-        icon: "description",
-        name: "alertTemplates",
-        requires: "alertList",
-        categoryKey: "menu.alerts",
-      },
-      // The curated catalog you add alerts FROM — gated the same way, so
-      // hiding Alerts hides the place to get more. Last, like its tab: you go
-      // looking for it once, then work in the other three.
-      {
-        titleKey: "alert_library.header",
-        icon: "menu-book",
-        name: "alertLibrary",
-        requires: "alertList",
-        categoryKey: "menu.alerts",
-      },
-      // ── Reliability's other concerns ────────────────────────────────────
-      // Deliberately OUTSIDE the Alerts header: an SLO is what an SLO alert
-      // burns against and an incident is what an alert escalates into — the
-      // same workflow, but not alerting configuration, so filing them under
-      // "Alerts" would misfile them. Every child carries `requires` so hiding
-      // any of them (`custom_hide_menus`, or Incidents being enterprise-gated)
-      // shrinks the group, and dropping to a single survivor collapses it back
-      // to a plain link rather than leaving a one-item flyout.
-      { titleKey: "menu.slos", icon: "target", name: "sloList", requires: "sloList" },
-      {
-        titleKey: "menu.incidents",
-        icon: "notifications-active",
-        name: "incidentList",
-        requires: "incidentList",
-      },
-      // Where external alerts (Grafana, Alertmanager, etc.) feed Incidents.
-      // Gated on incidentList, not alertList: this only makes sense where
-      // Incidents is enabled, matching the enterprise/cloud + incidents_enabled
-      // visibility check it already carried as a Settings tab.
-      {
-        titleKey: "alert_sources.header",
-        icon: "webhook",
-        name: "alertSources",
-        requires: "incidentList",
+        titleKey: "menu.savedQueries",
+        icon: "history",
+        name: "searchHistory",
+        requires: "searchHistory",
       },
     ],
   },
   {
-    key: "infra",
-    titleKey: "menu.infra",
-    icon: "dns",
-    // The tile lands on Database Monitoring — today its only destination, and
-    // the one that stays correct as the section grows, since a new Infra page
-    // would be added after it rather than in front of it.
-    parentLink: "/infra/databases",
-    // Nothing to absorb: Infra is a NEW rail section, not a fold of existing
-    // tiles. Database Monitoring only ever lived inside the Traces flyout, so
-    // no top-level item disappears when Infra appears — hence `standalone`,
-    // which is also what lets it render as a single-child group for now.
-    absorbs: [],
-    standalone: true,
-    // Directly after Reliability, ahead of Data. Database Monitoring is read
-    // the way Alerts/SLOs/Incidents are — you arrive because something is slow
-    // or stuck — so Infra belongs with the operational tiles rather than up
-    // among the telemetry explorers.
-    //
-    // Data names the SAME anchor, so the anchor alone does not order the two:
-    // `emitAfter` collects anchored groups in NAV_GROUPS declaration order.
-    // Infra is therefore declared BEFORE Data in this array, which is what puts
-    // it immediately below the Reliability tile. Moving it back below Data here
-    // would silently drop it one slot.
-    placeAfter: "reliability",
+    key: "logIngestion",
+    titleKey: "menu.logIngestion",
+    icon: "data-plus-line",
+    parentLink: "/ingestion",
+    absorbs: ["ingestion", "streams", "functionList"],
     children: [
-      // Moved here from the Traces flyout. The routes are always registered
-      // (the guard redirects when the feature is off), so the `gate` is what
-      // keeps the link out of the menu — and, because it is Infra's only child,
-      // what keeps the Infra TILE off the rail entirely (ONavGroup renders
-      // nothing when no child survives gating).
-      //
-      // ONE entry, not two: Databases and Top queries are two views of the same
-      // dataset over the same scope, so they are in-page tabs (DbmSectionTabs)
-      // rather than sibling destinations. Two flat rail children implied two
-      // unrelated pages and made the scope look like it reset between them.
-      // `activeOnRoutes` keeps this entry lit on the tab routes and on the
-      // query detail page, which are not nav children of their own.
       {
-        titleKey: "menu.databases",
-        icon: "database",
-        name: "dbmDatabases",
-        gate: "databaseMonitoring",
-        // EVERY in-page tab, not just the first two. Deadlocks and Blocked
-        // queries are DbmSectionTabs destinations with no nav child of their
-        // own, so omitting them unlit the Databases entry the moment the user
-        // opened either tab — the nav said they had left the section they were
-        // still standing in.
-        //
-        // The last three are enterprise-only and their route guards bounce an
-        // OSS reader to `dbmDatabases`, so on that build these entries simply
-        // never match — this list only decides WHICH ROUTE keeps the entry lit,
-        // never whether a route is reachable. Keeping them unconditional keeps
-        // one list for both builds; the gate lives in the route, as it does for
-        // the section itself.
-        activeOnRoutes: [
-          "dbmQueries",
-          "dbmSamples",
-          "dbmQueryDetail",
-          "dbmActivity",
-          "dbmDeadlocks",
-          "dbmBlocking",
-          "dbmTableHealth",
-        ],
-      },
-    ],
-  },
-  {
-    key: "data",
-    titleKey: "menu.data",
-    icon: "database",
-    parentLink: "/streams",
-    absorbs: ["streams", "pipeline", "ingestion", "workflows"],
-    // Data follows the Reliability tile — after Infra, which names the same
-    // anchor and is declared ahead of it. This is load-bearing: without it Data
-    // lands at its own first absorbed item (pipeline/streams), near the TOP of
-    // the rail, ahead of Experience and Dashboards.
-    placeAfter: "reliability",
-    children: [
-      { titleKey: "menu.index", icon: "window", name: "logstreams", requires: "streams" },
-      // Pipeline expands into its own tabbed sub-pages (same visibility rules).
-      {
-        titleKey: "function.streamPipeline",
-        icon: "lan",
-        name: "pipelines",
-        requires: "pipeline",
-        gate: "streamPipelines",
-      },
-      // Sits with Pipelines — the two are the same kind of thing (a flow canvas)
-      // and share the canvas code. `requires` keys off the top-level entry
-      // MainLayout adds/removes from `workflows_enabled`, so the flag still owns
-      // visibility and no gate is duplicated here.
-      { titleKey: "menu.workflows", icon: "schema", name: "workflows", requires: "workflows" },
-      { titleKey: "function.header", icon: "function", name: "functionList", requires: "pipeline" },
-      {
-        titleKey: "function.enrichmentTables",
-        icon: "dataset",
-        name: "enrichmentTables",
-        requires: "pipeline",
-      },
-      {
-        titleKey: "menu.ingestion",
+        titleKey: "menu.logSources",
         icon: "data-plus-line",
         name: "ingestion",
         requires: "ingestion",
       },
+      { titleKey: "menu.streams", icon: "window", name: "logstreams", requires: "streams" },
+      {
+        titleKey: "menu.parseRules",
+        icon: "function",
+        name: "functionList",
+        requires: "functionList",
+      },
     ],
   },
   {
-    key: "dashboards",
-    titleKey: "menu.dashboard",
+    key: "security",
+    titleKey: "menu.security",
+    icon: "shield-alert-outline",
+    parentLink: "/alerts",
+    absorbs: ["securityEvents", "auditPolicies", "alertList"],
+    children: [
+      {
+        titleKey: "menu.securityEvents",
+        icon: "notifications-active",
+        name: "securityEvents",
+        requires: "securityEvents",
+      },
+      {
+        titleKey: "menu.auditPolicies",
+        icon: "rule",
+        name: "auditPolicies",
+        requires: "auditPolicies",
+      },
+      {
+        titleKey: "menu.alertCenter",
+        icon: "shield-alert-outline",
+        name: "alertList",
+        requires: "alertList",
+      },
+    ],
+  },
+  {
+    key: "analysis",
+    titleKey: "menu.analysis",
     icon: "dashboard",
     parentLink: "/dashboards",
-    absorbs: ["dashboards", "reports"],
+    absorbs: ["dashboards", "reports", "aiAnalysis"],
     children: [
-      { titleKey: "menu.dashboard", icon: "dashboard", name: "dashboards", requires: "dashboards" },
-      { titleKey: "menu.report", icon: "description", name: "reports", requires: "reports" },
+      { titleKey: "menu.dashboards", icon: "dashboard", name: "dashboards", requires: "dashboards" },
+      { titleKey: "menu.auditReports", icon: "description", name: "reports", requires: "reports" },
+      { titleKey: "menu.aiAnalysis", icon: "auto-awesome", name: "aiAnalysis", requires: "aiAnalysis" },
     ],
   },
   {
-    key: "experience",
-    titleKey: "menu.experience",
-    icon: "devices",
-    // RUM's route always exists; Synthetics is feature-gated, so land on RUM.
-    parentLink: "/rum",
-    absorbs: ["rum", "synthetics"],
+    key: "management",
+    titleKey: "menu.management",
+    icon: "settings",
+    parentLink: "/settings",
+    absorbs: ["iam", "settings", "about"],
     children: [
-      { titleKey: "menu.rum", title: "RUM", icon: "devices", name: "RUM", requires: "rum" },
-      { titleKey: "menu.synthetic", icon: "radar", name: "synthetics", requires: "synthetics" },
+      { titleKey: "menu.userManagement", icon: "manage-accounts", name: "iam", requires: "iam" },
+      { titleKey: "menu.systemSettings", icon: "settings", name: "settings", requires: "settings" },
+      { titleKey: "menu.about", icon: "info", name: "about", requires: "about" },
     ],
   },
 ];
+
 
 /**
  * Top-level links that ALSO reveal their own in-page section nav on hover,
