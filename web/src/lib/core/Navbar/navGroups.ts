@@ -144,14 +144,14 @@ export const NAV_GROUPS: NavGroupDef[] = [
     key: "logIngestion",
     titleKey: "menu.logIngestion",
     icon: "data-plus-line",
-    parentLink: "/ingestion",
-    absorbs: ["ingestion", "streams", "functionList"],
+    parentLink: "/log-sources",
+    absorbs: ["logSources", "streams", "functionList"],
     children: [
       {
         titleKey: "menu.logSources",
         icon: "data-plus-line",
-        name: "ingestion",
-        requires: "ingestion",
+        name: "logSources",
+        requires: "logSources",
       },
       { titleKey: "menu.streams", icon: "window", name: "logstreams", requires: "streams" },
       {
@@ -194,10 +194,15 @@ export const NAV_GROUPS: NavGroupDef[] = [
     titleKey: "menu.analysis",
     icon: "dashboard",
     parentLink: "/dashboards",
-    absorbs: ["dashboards", "reports", "aiAnalysis"],
+    absorbs: ["dashboards", "auditReports", "aiAnalysis"],
     children: [
       { titleKey: "menu.dashboards", icon: "dashboard", name: "dashboards", requires: "dashboards" },
-      { titleKey: "menu.auditReports", icon: "description", name: "reports", requires: "reports" },
+      {
+        titleKey: "menu.auditReports",
+        icon: "description",
+        name: "auditReports",
+        requires: "auditReports",
+      },
       { titleKey: "menu.aiAnalysis", icon: "auto-awesome", name: "aiAnalysis", requires: "aiAnalysis" },
     ],
   },

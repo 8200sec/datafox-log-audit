@@ -562,6 +562,26 @@ const useRoutes = () => {
       },
     },
     {
+      // DataFox shell placeholder — log sources arrive in a later phase.
+      path: "log-sources",
+      name: "logSources",
+      component: ComingSoon,
+      meta: {
+        keepAlive: false,
+        titleKey: "menu.logSources",
+      },
+    },
+    {
+      // DataFox shell placeholder — audit reports arrive in a later phase.
+      path: "audit-reports",
+      name: "auditReports",
+      component: ComingSoon,
+      meta: {
+        keepAlive: false,
+        titleKey: "menu.auditReports",
+      },
+    },
+    {
       path: "dashboards",
       name: "dashboards",
       component: Dashboards,

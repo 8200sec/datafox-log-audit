@@ -382,8 +382,8 @@ export default defineComponent({
       {
         title: t("menu.logSources"),
         icon: "data-plus-line",
-        link: "/ingestion",
-        name: "ingestion",
+        link: "/log-sources",
+        name: "logSources",
       },
       {
         title: t("menu.streams"),
@@ -424,8 +424,8 @@ export default defineComponent({
       {
         title: t("menu.auditReports"),
         icon: "description",
-        link: "/reports",
-        name: "reports",
+        link: "/audit-reports",
+        name: "auditReports",
       },
       {
         title: t("menu.aiAnalysis"),
