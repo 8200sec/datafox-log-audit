@@ -57,15 +57,21 @@ export PROTOC_INCLUDE="$PWD/tools/include"
 cargo build            # debug build — CLAUDE.md forbids --release unless asked
 ```
 
-Run the server (first run seeds the admin user via env vars):
+Run the server (first run seeds the admin user via env vars). For the Vite dev
+frontend on `:8081`, you must also allow that origin in CORS — the backend only
+allows `web_url` (`http://localhost:5080`) by default:
 
 ```shell
 ZO_ROOT_USER_EMAIL="root@example.com" ZO_ROOT_USER_PASSWORD="Complexpass#123" \
+  ZO_CORS_ALLOWED_ORIGINS="http://localhost:8081" \
   cargo run
 ```
 
 The API server listens on port `5080`. `.env` in the repo root overrides process
-env — check it before running.
+env — check it before running. (`ZO_CORS_ALLOWED_ORIGINS` takes a comma-separated
+list of extra origins in addition to `web_url`; without it the browser's
+cross-origin POST `/auth/login` is blocked and login shows "invalid username or
+password".)
 
 > **Verified ✅** (`cargo build` finished in ~35 min; binary at
 > `target/debug/openobserve`, ~1.2 GB; server starts and answers on `:5080`).
@@ -159,7 +165,8 @@ Two terminals:
 # terminal 1 — backend
 source "$HOME/.cargo/env"
 export PATH="$PWD/tools/bin:$PATH" PROTOC_INCLUDE="$PWD/tools/include"
-ZO_ROOT_USER_EMAIL="root@example.com" ZO_ROOT_USER_PASSWORD="Complexpass#123" cargo run
+ZO_ROOT_USER_EMAIL="root@example.com" ZO_ROOT_USER_PASSWORD="Complexpass#123" \
+  ZO_CORS_ALLOWED_ORIGINS="http://localhost:8081" cargo run
 
 # terminal 2 — frontend (after: cd web && npm install)
 cd web && npm run dev     # http://localhost:8081/web/  →  API http://localhost:5080
