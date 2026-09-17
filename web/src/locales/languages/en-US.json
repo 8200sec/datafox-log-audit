@@ -1515,7 +1515,7 @@
     "yourPlan": "Your Plan",
     "allFivePillars": "ALL FIVE PILLARS",
     "license_key_required": "License key is required",
-    "logoMsg": "Observability simplified.",
+    "logoMsg": "Log audit, simplified.",
     "manage_license": "Manage License",
     "os_libraries": "Open Source Libraries",
     "os_libraries_msg": "Built on the shoulders of giants. OpenObserve depends on many amazing open source libraries.",
@@ -5739,7 +5739,7 @@
     "tabOverview": "Overview",
     "tabUsage": "Usage",
     "removeHomeDashboard": "Remove home dashboard",
-    "subtitle": "Your observability workspace at a glance",
+    "subtitle": "Your log audit workspace at a glance",
     "resources": "Resources",
     "explore": "Explore"
   },

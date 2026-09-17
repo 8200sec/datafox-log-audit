@@ -2,14 +2,14 @@
   <div class="flex h-screen">
     <!-- Left Banner Section -->
     <div
-      class="hidden bg-[url('@/assets/images/common/openobserve_banner_compreesed.png')] bg-cover bg-center bg-no-repeat lg:flex lg:w-[40%]"
+      class="hidden bg-gradient-brand-ribbon lg:flex lg:w-[40%]"
     >
       <div class="flex h-full items-end justify-start">
         <div class="mb-8.5 ml-8">
           <span class="mb-3">
             <img
               class="-ml-px h-10"
-              :src="getImageURL(branding.logo)"
+              :src="getImageURL(branding.darkLogo)"
               :alt="branding.shortName"
             />
           </span>
@@ -28,7 +28,7 @@
       <div class="mb-4 flex flex-col items-center">
         <img
           class="h-16"
-          src="@/assets/images/common/o2_logo.svg"
+          :src="getImageURL('images/common/datafox_mark.svg')"
           :alt="t('login.getStartedBannerAlt')"
         />
         <div class="text-text-heading text-center text-2xl font-semibold md:text-3xl">

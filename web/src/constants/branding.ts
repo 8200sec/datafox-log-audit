@@ -30,13 +30,12 @@ export interface ProductBranding {
 }
 
 export const branding: ProductBranding = {
-  productName: "DataFox Log Audit",
+  productName: "DataFox 日志审计系统",
   shortName: "DataFox",
   companyName: "DataFox",
-  // OpenObserve artwork stands in until DataFox brand assets are supplied.
-  logo: "images/common/openobserve_latest_light_2.svg",
-  darkLogo: "images/common/openobserve_latest_dark_2.svg",
-  favicon: "/favicon.ico",
+  logo: "images/common/datafox_logo_light.svg",
+  darkLogo: "images/common/datafox_logo_dark.svg",
+  favicon: "/datafox_favicon.svg",
   showEnterpriseBanner: false,
   showUpstreamBranding: false,
   enabledModules: ["logs", "search", "alerts", "dashboards", "reports"],

@@ -118,11 +118,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
             :src="
               getImageURL(
                 isDark
-                  ? 'images/common/openobserve_latest_dark_2.svg'
-                  : 'images/common/openobserve_latest_light_2.svg',
+                  ? branding.darkLogo
+                  : branding.logo,
               )
             "
-            :alt="raw('OpenObserve')"
+            :alt="branding.shortName"
           />
         </a>
       </div>

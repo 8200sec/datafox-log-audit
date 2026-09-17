@@ -232,6 +232,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
                 {{ t("about.github") }}
               </a>
               <a
+                v-if="branding.showUpstreamBranding"
                 href="https://openobserve.ai"
                 target="_blank"
                 class="rounded-default text-accent border-accent/18 bg-card-glass-tint-soft inline-flex items-center gap-1.5 border px-3.5 py-2 text-sm font-medium no-underline transition-all duration-200"
@@ -443,7 +444,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
         </div>
 
         <!-- ── Feature Comparison ──────────────────────────────────── -->
-        <div v-if="config.isCloud === 'false'" class="bg-card-glass-bg rounded-default mb-5 p-4">
+        <div
+          v-if="branding.showEnterpriseBanner && config.isCloud === 'false'"
+          class="bg-card-glass-bg rounded-default mb-5 p-4"
+        >
           <FeatureComparisonTable />
         </div>
       </div>
