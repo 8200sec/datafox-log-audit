@@ -13,6 +13,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import { gt } from "@/types/i18n";
+
 /// Single source of truth for DataFox Log Audit product branding.
 /// Components read these values instead of hardcoding the product name or logo.
 export interface ProductBranding {
@@ -30,7 +32,10 @@ export interface ProductBranding {
 }
 
 export const branding: ProductBranding = {
-  productName: "DataFox 日志审计系统",
+  // Localized via i18n (`common.productName`) so the descriptor follows locale.
+  get productName(): string {
+    return gt("common.productName");
+  },
   shortName: "DataFox",
   companyName: "DataFox",
   logo: "images/common/datafox_logo_light.png",

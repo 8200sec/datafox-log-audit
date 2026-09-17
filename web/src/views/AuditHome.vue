@@ -65,8 +65,8 @@ const RISK_META: Record<string, { variant: BadgeVariant; label: () => I18nText }
 };
 
 const STATUS_META: Record<string, { variant: BadgeVariant; label: () => I18nText }> = {
-  open: { variant: "error-soft", label: () => raw("Open") },
-  resolved: { variant: "success-soft", label: () => raw("Resolved") },
+  open: { variant: "error-soft", label: () => t("auditHome.statusOpen") },
+  resolved: { variant: "success-soft", label: () => t("auditHome.statusResolved") },
 };
 
 const fmt = (n: number): string => n.toLocaleString("en-US");

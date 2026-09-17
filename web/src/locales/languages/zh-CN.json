@@ -499,6 +499,7 @@
   "common": {
     "copiedToClipboard": "已复制到剪贴板",
     "comingSoon": "即将推出",
+    "productName": "DataFox 日志审计系统",
     "inlineEdit": {
       "autoHint": "点击重命名。在您重命名之前，此名称会根据您的配置自动生成，并在您更改配置时随之更新。"
     },
@@ -1275,6 +1276,8 @@
     "source": "来源",
     "riskLevel": "风险等级",
     "status": "状态",
+    "statusOpen": "待处理",
+    "statusResolved": "已处理",
     "sampleData": "示例数据"
   },
   "rum": {
