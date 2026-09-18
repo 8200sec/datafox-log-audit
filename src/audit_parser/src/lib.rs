@@ -21,15 +21,18 @@
 mod dispatcher;
 mod failure;
 mod generic_json;
+mod generic_syslog;
 mod normalizer;
 mod parser;
 mod parsers;
 mod registry;
+mod syslog;
 mod types;
 
 pub use dispatcher::Dispatcher;
 pub use failure::{FailureCode, FailureStage, ParseFailure};
 pub use generic_json::GenericJsonParser;
+pub use generic_syslog::GenericSyslogParser;
 pub use normalizer::Normalizer;
 pub use parser::Parser;
 pub use parsers::{DummyParser, FallbackParser};
@@ -39,12 +42,14 @@ pub use types::{
     TenantContext, Timestamp, TransportMetadata,
 };
 
-/// Build a dispatcher pre-loaded with the current built-in parsers (Generic JSON
-/// at priority 20, Dummy for tests, Generic Fallback for everything else). Real
-/// vendor parsers register into the same registry in later tasks.
+/// Build a dispatcher pre-loaded with the current built-in parsers (Generic Syslog
+/// at priority 40, Generic JSON at 20, Dummy for tests, Generic Fallback for
+/// everything else). Real vendor parsers register into the same registry in later
+/// tasks.
 pub fn default_dispatcher() -> Dispatcher {
     let mut registry = ParserRegistry::new();
     // Ignore a duplicate/error on re-registration; the built-ins are fixed.
+    let _ = registry.register(std::sync::Arc::new(GenericSyslogParser));
     let _ = registry.register(std::sync::Arc::new(GenericJsonParser));
     let _ = registry.register(std::sync::Arc::new(DummyParser));
     registry.set_fallback(std::sync::Arc::new(FallbackParser));
