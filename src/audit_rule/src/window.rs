@@ -90,6 +90,9 @@ pub struct WindowEvaluation {
     pub threshold_reached: bool,
     pub threshold_crossed: bool,
     pub sample_event_ids: Vec<String>,
+    /// Timestamp of the most recent threshold crossing (the current episode's
+    /// start); `None` while the threshold is not reached.
+    pub episode_started_at: Option<i64>,
 }
 
 /// Non-fatal outcome of recording an event (the event was not added).
@@ -123,6 +126,7 @@ struct WindowState {
     entries: Vec<WindowEntry>,
     window_seconds: i64,
     previous_reached: bool,
+    episode_started_at: Option<i64>,
 }
 
 /// In-memory sliding-window state manager for `threshold` rules. Pure in-memory,
@@ -192,6 +196,7 @@ impl WindowStateManager {
                     entries: Vec::new(),
                     window_seconds,
                     previous_reached: false,
+                    episode_started_at: None,
                 },
             );
             *self
@@ -222,6 +227,7 @@ impl WindowStateManager {
         let pos = state
             .entries
             .partition_point(|e| e.timestamp <= entry.timestamp);
+        let entry_ts = entry.timestamp;
         state.entries.insert(pos, entry);
 
         let count = state.entries.len();
@@ -230,6 +236,11 @@ impl WindowStateManager {
         let reached = (count as u64) >= threshold;
         let crossed = reached && !state.previous_reached;
         state.previous_reached = reached;
+        if crossed {
+            state.episode_started_at = Some(entry_ts);
+        } else if !reached {
+            state.episode_started_at = None;
+        }
 
         let sample_event_ids = state
             .entries
@@ -250,6 +261,7 @@ impl WindowStateManager {
             threshold_reached: reached,
             threshold_crossed: crossed,
             sample_event_ids,
+            episode_started_at: state.episode_started_at,
         }))
     }
 
@@ -307,7 +319,7 @@ impl WindowStateManager {
 
 /// Build the canonical group key in `aggregation.group_by` declaration order —
 /// never HashMap iteration order.
-fn canonical_group_key(
+pub(crate) fn canonical_group_key(
     agg: &Aggregation,
     group_values: &Value,
     max_len: usize,

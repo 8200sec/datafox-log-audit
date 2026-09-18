@@ -739,6 +739,7 @@ fn sample_event_ids_capped() {
         threshold_reached: false,
         threshold_crossed: false,
         sample_event_ids: vec![],
+        episode_started_at: None,
     };
     for i in 0..(MAX_SAMPLE_EVENT_IDS + 50) {
         last = eval(rec(

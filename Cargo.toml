@@ -539,6 +539,7 @@ rand = "0.10"
 rayon = "1.10"
 regex = "1.11"
 regex-syntax = "0.8"
+rusqlite = { version = "0.32", features = ["bundled"] }
 reqwest = { version = "0.13", default-features = false, features = [
     "rustls",
     "stream",

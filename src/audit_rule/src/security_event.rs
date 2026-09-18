@@ -66,7 +66,7 @@ pub enum Category {
 /// - Immutable after creation: `event_id`, `tenant_id`, `rule_id`, `created_at`.
 /// - Mutable on aggregation: `last_seen`, `event_count`, `status`, `updated_at`, `evidence`,
 ///   `related_event_ids`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SecurityEvent {
     /// System-generated unique id — never taken from the client, an AuditEvent,
     /// or a rule payload.

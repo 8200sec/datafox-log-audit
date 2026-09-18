@@ -25,18 +25,25 @@
 //! holds the rule definition DSL, the stateless rule evaluator, the threshold
 //! window-state manager, and the SecurityEvent schema.
 
+mod builder;
 mod condition;
 mod evaluator;
+mod repository;
 mod resolve;
 mod rule;
 mod security_event;
 mod window;
 
+pub use builder::{BuilderError, DetectionKey, SecurityEventBuilder, SecurityEventMutation};
 pub use condition::{
     Condition, FieldPath, LeafCondition, MAX_CONDITION_DEPTH, Operator, STANDARD_FIELDS,
     is_valid_field_path,
 };
 pub use evaluator::{EvaluationError, EvaluationResult, RuleEvaluator, RuleMatch};
+pub use repository::{
+    CreateOutcome, RepositoryError, SecurityEventRepository, SecurityEventUpdate,
+    SqliteSecurityEventRepository, UpdateOutcome,
+};
 pub use resolve::{TypedValue, resolve_field};
 pub use rule::{
     Aggregation, MAX_GROUP_BY_FIELDS, RuleDefinition, RuleDefinitionError, RuleSource, RuleType,
