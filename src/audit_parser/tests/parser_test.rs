@@ -97,7 +97,7 @@ impl Parser for BadTimestampParser {
             parser_id: "bad-ts".to_string(),
             parser_version: "1.0.0".to_string(),
             raw_log: input.raw_log.clone(),
-            timestamp: Some(-1),
+            timestamp: Some(audit_parser::Timestamp::EpochMillis(-1)),
             severity: Some("info".to_string()),
             ..Default::default()
         })

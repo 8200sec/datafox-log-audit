@@ -76,13 +76,25 @@ pub struct RawLogInput {
     pub transport: Option<TransportMetadata>,
 }
 
+/// A timestamp candidate extracted by a parser, resolved to epoch ms by the
+/// Normalizer. Parsers extract the raw value; they never do the time parsing.
+#[derive(Debug, Clone)]
+pub enum Timestamp {
+    /// Already epoch milliseconds (a parser that pre-computes it).
+    EpochMillis(i64),
+    /// Raw string candidate (ISO 8601 / RFC3339, or a numeric string).
+    RawString(String),
+    /// Raw numeric candidate (Unix seconds or milliseconds).
+    RawNumber(f64),
+}
+
 /// Intermediate representation a parser emits (fields UNNORMALIZED).
 #[derive(Debug, Clone, Default)]
 pub struct ParsedEvent {
     pub parser_id: String,
     pub parser_version: String,
     pub raw_log: String,
-    pub timestamp: Option<i64>,
+    pub timestamp: Option<Timestamp>,
     pub severity: Option<String>,
     pub result: Option<String>,
     pub source_type: Option<String>,

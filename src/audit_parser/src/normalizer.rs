@@ -13,9 +13,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use chrono::{DateTime, NaiveDateTime};
+
 use crate::{
     failure::{FailureCode, FailureStage, ParseFailure},
-    types::{AuditEvent, EventResult, ParsedEvent, RawLogInput, Severity, SourceType},
+    types::{AuditEvent, EventResult, ParsedEvent, RawLogInput, Severity, SourceType, Timestamp},
 };
 
 /// Deterministic djb2 event id — stable for the same tenant+source+raw+time.
@@ -94,6 +96,21 @@ impl Normalizer {
         raw?.parse::<u16>().ok()
     }
 
+    /// Resolve a parser-extracted timestamp candidate to epoch milliseconds.
+    /// `None` means the candidate was present but not a valid timestamp.
+    pub fn normalize_timestamp(&self, ts: &Timestamp) -> Option<i64> {
+        match ts {
+            Timestamp::EpochMillis(ms) if *ms >= 0 => Some(*ms),
+            Timestamp::RawString(s) => parse_timestamp_str(s),
+            Timestamp::RawNumber(n) => {
+                // Unix seconds (< 1e11) vs milliseconds (>= 1e11).
+                let ms = if *n >= 1e11 { *n } else { *n * 1000.0 };
+                (ms >= 0.0).then_some(ms as i64)
+            }
+            _ => None,
+        }
+    }
+
     pub fn normalize(
         &self,
         parsed: &ParsedEvent,
@@ -109,16 +126,21 @@ impl Normalizer {
                 "raw_log is empty",
             ));
         }
-        let timestamp = parsed.timestamp.unwrap_or(input.received_at);
-        if timestamp < 0 {
-            return Err(self.failure(
-                input,
-                parsed,
-                FailureStage::Normalize,
-                FailureCode::InvalidTimestamp,
-                "invalid timestamp",
-            ));
-        }
+        let timestamp = match parsed.timestamp.as_ref() {
+            Some(ts) => match self.normalize_timestamp(ts) {
+                Some(ms) => ms,
+                None => {
+                    return Err(self.failure(
+                        input,
+                        parsed,
+                        FailureStage::Normalize,
+                        FailureCode::InvalidTimestamp,
+                        "invalid timestamp",
+                    ));
+                }
+            },
+            None => input.received_at,
+        };
 
         Ok(AuditEvent {
             timestamp,
@@ -176,7 +198,11 @@ impl Normalizer {
         message: &str,
     ) -> ParseFailure {
         ParseFailure {
-            timestamp: parsed.timestamp.unwrap_or(input.received_at),
+            timestamp: parsed
+                .timestamp
+                .as_ref()
+                .and_then(|t| self.normalize_timestamp(t))
+                .unwrap_or(input.received_at),
             raw_log: if parsed.raw_log.is_empty() {
                 input.raw_log.clone()
             } else {
@@ -206,6 +232,33 @@ fn is_ipv4(s: &str) -> bool {
         && parts
             .iter()
             .all(|p| !p.is_empty() && p.len() <= 3 && p.parse::<u8>().is_ok())
+}
+
+/// Parse a timestamp string to epoch milliseconds. Accepts a numeric string
+/// (Unix seconds or milliseconds), RFC3339/ISO 8601 with an offset, and a few
+/// naive UTC formats.
+fn parse_timestamp_str(s: &str) -> Option<i64> {
+    let s = s.trim();
+    if let Ok(n) = s.parse::<f64>() {
+        return Some(if n >= 1e11 {
+            n as i64
+        } else {
+            (n * 1000.0) as i64
+        });
+    }
+    if let Ok(dt) = DateTime::parse_from_rfc3339(s) {
+        return Some(dt.timestamp_millis());
+    }
+    for fmt in [
+        "%Y-%m-%dT%H:%M:%S%.f",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%d %H:%M:%S",
+    ] {
+        if let Ok(ndt) = NaiveDateTime::parse_from_str(s, fmt) {
+            return Some(ndt.and_utc().timestamp_millis());
+        }
+    }
+    None
 }
 
 fn is_ipv6(s: &str) -> bool {

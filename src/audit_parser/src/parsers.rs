@@ -15,7 +15,7 @@
 
 use crate::{
     parser::Parser,
-    types::{ParsedEvent, RawLogInput},
+    types::{ParsedEvent, RawLogInput, Timestamp},
 };
 
 /// Generic fallback for logs no dedicated parser claims. Never drops a log.
@@ -84,7 +84,7 @@ impl Parser for DummyParser {
             parser_id: "dummy".to_string(),
             parser_version: "1.0.0".to_string(),
             raw_log: input.raw_log.clone(),
-            timestamp: Some(input.received_at),
+            timestamp: Some(Timestamp::EpochMillis(input.received_at)),
             source_type: Some("application".to_string()),
             source_name: Some("dummy-source".to_string()),
             hostname: Some("dummy-host".to_string()),
