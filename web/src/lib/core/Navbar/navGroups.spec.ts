@@ -1,7 +1,7 @@
 // Copyright 2026 OpenObserve Inc.
 
 import { describe, it, expect } from "vitest";
-import { groupNavLinks, NAV_GROUPS, NAV_SUBNAV, GATE_PREDICATES } from "./navGroups";
+import { groupNavLinks, NAV_SUBNAV, GATE_PREDICATES } from "./navGroups";
 import type { NavGateContext } from "./ONavbar.types";
 import type { NavItem, RailEntry } from "./ONavbar.types";
 
