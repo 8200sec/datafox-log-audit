@@ -75,7 +75,7 @@ fn rec(
 
 fn eval(outcome: Result<WindowOutcome, WindowError>) -> WindowEvaluation {
     match outcome.unwrap() {
-        WindowOutcome::Recorded(e) => e,
+        WindowOutcome::Recorded(e) => *e,
         other => panic!("expected recorded, got {other:?}"),
     }
 }

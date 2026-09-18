@@ -16,9 +16,10 @@
 use std::{path::Path, sync::Mutex};
 
 use rusqlite::{Connection, OptionalExtension};
-use serde::{Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use thiserror::Error;
+use uuid::Uuid;
 
 use crate::{
     builder::DetectionKey,
@@ -26,7 +27,7 @@ use crate::{
 };
 
 /// The DataFox schema version, tracked via SQLite `PRAGMA user_version`.
-const SCHEMA_VERSION: i32 = 1;
+const SCHEMA_VERSION: i32 = 2;
 
 /// The delta a detection update applies to an existing episode. Only these
 /// fields are mutable; everything else is immutable by construction.
@@ -72,6 +73,61 @@ pub enum UpdateOutcome {
     NotFound,
 }
 
+/// Outcome of a workflow status transition.
+#[derive(Debug, Clone, PartialEq)]
+pub enum TransitionOutcome {
+    Transitioned { status: Status },
+    NotFound,
+    Conflict,
+}
+
+/// One workflow audit record (append-only history).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SecurityEventAction {
+    pub id: String,
+    pub tenant_id: String,
+    pub security_event_id: String,
+    pub action: String,
+    pub from_status: Status,
+    pub to_status: Status,
+    pub actor_id: String,
+    pub comment: Option<String>,
+    pub created_at: i64,
+}
+
+/// Sort order for list queries.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SortOrder {
+    #[default]
+    #[serde(rename = "desc")]
+    LastSeenDesc,
+    #[serde(rename = "asc")]
+    LastSeenAsc,
+}
+
+/// List filters (all optional; empty = match all).
+#[derive(Debug, Clone, Default)]
+pub struct SecurityEventFilter {
+    pub status: Option<Status>,
+    pub severity: Option<Severity>,
+    pub rule_id: Option<String>,
+    pub event_type: Option<String>,
+    pub src_ip: Option<String>,
+    pub username: Option<String>,
+    pub last_seen_from: Option<i64>,
+    pub last_seen_to: Option<i64>,
+    pub limit: u32,
+    pub offset: u32,
+    pub sort: SortOrder,
+}
+
+/// A page of results with a total count.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ListPage<T> {
+    pub items: Vec<T>,
+    pub total: u64,
+}
+
 /// Storage abstraction for SecurityEvent current state. The SQLite impl is the
 /// v1 low-resource single-node store; a future PostgreSQL impl can replace it
 /// behind the same trait.
@@ -107,9 +163,36 @@ pub trait SecurityEventRepository: Send + Sync {
     ) -> Result<Option<SecurityEvent>, RepositoryError>;
 
     fn list(&self, tenant_id: &str, limit: u32) -> Result<Vec<SecurityEvent>, RepositoryError>;
+
+    /// Transition a SecurityEvent's workflow status. Status + action history are
+    /// written atomically; only `status` / `updated_at` change. `Conflict` means
+    /// the transition is illegal (or the row was concurrently modified).
+    fn transition_status(
+        &self,
+        tenant_id: &str,
+        event_id: &str,
+        to: Status,
+        actor_id: &str,
+        comment: Option<&str>,
+        now: i64,
+    ) -> Result<TransitionOutcome, RepositoryError>;
+
+    /// List SecurityEvents for a tenant with filters + pagination + sorting.
+    fn list_filtered(
+        &self,
+        tenant_id: &str,
+        filter: &SecurityEventFilter,
+    ) -> Result<ListPage<SecurityEvent>, RepositoryError>;
+
+    /// List the workflow audit trail for one SecurityEvent.
+    fn list_actions(
+        &self,
+        tenant_id: &str,
+        security_event_id: &str,
+    ) -> Result<Vec<SecurityEventAction>, RepositoryError>;
 }
 
-const DDL: &str = "
+const DDL_V1: &str = "
 CREATE TABLE security_events (
     event_id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL,
@@ -140,6 +223,21 @@ CREATE INDEX idx_security_events_tenant_status ON security_events (tenant_id, st
 CREATE INDEX idx_security_events_tenant_severity ON security_events (tenant_id, severity);
 CREATE INDEX idx_security_events_tenant_last_seen ON security_events (tenant_id, last_seen);
 CREATE INDEX idx_security_events_tenant_rule ON security_events (tenant_id, rule_id);
+";
+
+const DDL_V2: &str = "
+CREATE TABLE security_event_actions (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    security_event_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    from_status TEXT NOT NULL,
+    to_status TEXT NOT NULL,
+    actor_id TEXT NOT NULL,
+    comment TEXT,
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX idx_security_event_actions_event ON security_event_actions (tenant_id, security_event_id);
 ";
 
 /// Embedded SQLite repository over an independent `datafox.db` — never touches
@@ -238,6 +336,46 @@ impl SecurityEventRepository for SqliteSecurityEventRepository {
             .map_err(|_| RepositoryError::DatabaseError("lock poisoned".into()))?;
         list_by_tenant(&conn, tenant_id, limit)
     }
+
+    fn transition_status(
+        &self,
+        tenant_id: &str,
+        event_id: &str,
+        to: Status,
+        actor_id: &str,
+        comment: Option<&str>,
+        now: i64,
+    ) -> Result<TransitionOutcome, RepositoryError> {
+        let mut conn = self
+            .conn
+            .lock()
+            .map_err(|_| RepositoryError::DatabaseError("lock poisoned".into()))?;
+        transition_status(&mut conn, tenant_id, event_id, to, actor_id, comment, now)
+    }
+
+    fn list_filtered(
+        &self,
+        tenant_id: &str,
+        filter: &SecurityEventFilter,
+    ) -> Result<ListPage<SecurityEvent>, RepositoryError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| RepositoryError::DatabaseError("lock poisoned".into()))?;
+        list_filtered(&conn, tenant_id, filter)
+    }
+
+    fn list_actions(
+        &self,
+        tenant_id: &str,
+        security_event_id: &str,
+    ) -> Result<Vec<SecurityEventAction>, RepositoryError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| RepositoryError::DatabaseError("lock poisoned".into()))?;
+        list_actions(&conn, tenant_id, security_event_id)
+    }
 }
 
 fn db_err(e: rusqlite::Error) -> RepositoryError {
@@ -257,7 +395,12 @@ fn migrate(conn: &Connection) -> Result<(), RepositoryError> {
             "schema version {version} is newer than supported {SCHEMA_VERSION}"
         )));
     }
-    conn.execute_batch(DDL).map_err(db_err)?;
+    if version < 1 {
+        conn.execute_batch(DDL_V1).map_err(db_err)?;
+    }
+    if version < 2 {
+        conn.execute_batch(DDL_V2).map_err(db_err)?;
+    }
     conn.pragma_update(None, "user_version", SCHEMA_VERSION)
         .map_err(db_err)?;
     Ok(())
@@ -421,6 +564,198 @@ fn list_by_tenant(
         .map_err(db_err)?;
     let rows = stmt
         .query_map(rusqlite::params![tenant_id, limit as i64], row_to_event)
+        .map_err(db_err)?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r.map_err(db_err)?);
+    }
+    Ok(out)
+}
+
+/// Atomically transition a status: read current status, validate the transition,
+/// conditionally update (compare-and-swap on the current status), and write the
+/// action history — all in one transaction.
+fn transition_status(
+    conn: &mut Connection,
+    tenant_id: &str,
+    event_id: &str,
+    to: Status,
+    actor_id: &str,
+    comment: Option<&str>,
+    now: i64,
+) -> Result<TransitionOutcome, RepositoryError> {
+    let tx = conn.transaction().map_err(db_err)?;
+
+    let from: Option<String> = tx
+        .query_row(
+            "SELECT status FROM security_events WHERE tenant_id = ?1 AND event_id = ?2",
+            rusqlite::params![tenant_id, event_id],
+            |r| r.get(0),
+        )
+        .optional()
+        .map_err(db_err)?;
+
+    let Some(from_str) = from else {
+        return Ok(TransitionOutcome::NotFound);
+    };
+    let from_status = enum_from_db::<Status>(&from_str)?;
+
+    if !from_status.can_transition_to(to) {
+        return Ok(TransitionOutcome::Conflict);
+    }
+
+    // Compare-and-swap on the current status — a concurrent transition makes
+    // this update affect 0 rows, surfacing as Conflict instead of overwriting.
+    let updated = tx
+        .execute(
+            "UPDATE security_events SET status = ?1, updated_at = ?2
+             WHERE tenant_id = ?3 AND event_id = ?4 AND status = ?5",
+            rusqlite::params![enum_to_db(&to)?, now, tenant_id, event_id, from_str],
+        )
+        .map_err(db_err)?;
+    if updated == 0 {
+        return Ok(TransitionOutcome::Conflict);
+    }
+
+    tx.execute(
+        "INSERT INTO security_event_actions
+            (id, tenant_id, security_event_id, action, from_status, to_status, actor_id, comment, created_at)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
+        rusqlite::params![
+            Uuid::now_v7().to_string(),
+            tenant_id,
+            event_id,
+            action_name(to),
+            from_str,
+            enum_to_db(&to)?,
+            actor_id,
+            comment,
+            now,
+        ],
+    )
+    .map_err(db_err)?;
+
+    tx.commit().map_err(db_err)?;
+    Ok(TransitionOutcome::Transitioned { status: to })
+}
+
+fn action_name(to: Status) -> &'static str {
+    match to {
+        Status::Open => "open",
+        Status::Acknowledged => "acknowledge",
+        Status::Resolved => "resolve",
+        Status::Closed => "close",
+    }
+}
+
+fn list_filtered(
+    conn: &Connection,
+    tenant_id: &str,
+    filter: &SecurityEventFilter,
+) -> Result<ListPage<SecurityEvent>, RepositoryError> {
+    let mut where_clauses = vec!["tenant_id = ?".to_string()];
+    let mut params: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(tenant_id.to_string())];
+
+    if let Some(s) = &filter.status {
+        where_clauses.push("status = ?".to_string());
+        params.push(Box::new(enum_to_db(s)?));
+    }
+    if let Some(s) = &filter.severity {
+        where_clauses.push("severity = ?".to_string());
+        params.push(Box::new(enum_to_db(s)?));
+    }
+    if let Some(r) = &filter.rule_id {
+        where_clauses.push("rule_id = ?".to_string());
+        params.push(Box::new(r.clone()));
+    }
+    if let Some(e) = &filter.event_type {
+        where_clauses.push("event_type = ?".to_string());
+        params.push(Box::new(e.clone()));
+    }
+    if let Some(ip) = &filter.src_ip {
+        where_clauses.push("src_ip = ?".to_string());
+        params.push(Box::new(ip.clone()));
+    }
+    if let Some(u) = &filter.username {
+        where_clauses.push("username = ?".to_string());
+        params.push(Box::new(u.clone()));
+    }
+    if let Some(f) = filter.last_seen_from {
+        where_clauses.push("last_seen >= ?".to_string());
+        params.push(Box::new(f));
+    }
+    if let Some(t) = filter.last_seen_to {
+        where_clauses.push("last_seen <= ?".to_string());
+        params.push(Box::new(t));
+    }
+
+    let where_sql = where_clauses.join(" AND ");
+    let order = match filter.sort {
+        SortOrder::LastSeenDesc => "last_seen DESC, event_id DESC",
+        SortOrder::LastSeenAsc => "last_seen ASC, event_id ASC",
+    };
+
+    let total: i64 = conn
+        .query_row(
+            &format!("SELECT COUNT(*) FROM security_events WHERE {where_sql}"),
+            rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())),
+            |r| r.get(0),
+        )
+        .map_err(db_err)?;
+
+    let sql = format!(
+        "SELECT * FROM security_events WHERE {where_sql} ORDER BY {order} LIMIT ? OFFSET ?"
+    );
+    params.push(Box::new(filter.limit as i64));
+    params.push(Box::new(filter.offset as i64));
+
+    let mut stmt = conn.prepare(&sql).map_err(db_err)?;
+    let rows = stmt
+        .query_map(
+            rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())),
+            row_to_event,
+        )
+        .map_err(db_err)?;
+    let mut items = Vec::new();
+    for r in rows {
+        items.push(r.map_err(db_err)?);
+    }
+
+    Ok(ListPage {
+        items,
+        total: total as u64,
+    })
+}
+
+fn list_actions(
+    conn: &Connection,
+    tenant_id: &str,
+    security_event_id: &str,
+) -> Result<Vec<SecurityEventAction>, RepositoryError> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, tenant_id, security_event_id, action, from_status, to_status, actor_id, comment, created_at
+             FROM security_event_actions
+             WHERE tenant_id = ?1 AND security_event_id = ?2
+             ORDER BY created_at ASC, id ASC",
+        )
+        .map_err(db_err)?;
+    let rows = stmt
+        .query_map(rusqlite::params![tenant_id, security_event_id], |r| {
+            Ok(SecurityEventAction {
+                id: r.get(0)?,
+                tenant_id: r.get(1)?,
+                security_event_id: r.get(2)?,
+                action: r.get(3)?,
+                from_status: enum_from_db::<Status>(&r.get::<_, String>(4)?)
+                    .map_err(|_| rusqlite::Error::InvalidQuery)?,
+                to_status: enum_from_db::<Status>(&r.get::<_, String>(5)?)
+                    .map_err(|_| rusqlite::Error::InvalidQuery)?,
+                actor_id: r.get(6)?,
+                comment: r.get(7)?,
+                created_at: r.get(8)?,
+            })
+        })
         .map_err(db_err)?;
     let mut out = Vec::new();
     for r in rows {

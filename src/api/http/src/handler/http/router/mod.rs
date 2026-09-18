@@ -808,6 +808,12 @@ pub fn service_routes() -> Router {
         // Logs ingestion
         .route("/{org_id}/_bulk", post(logs::ingest::bulk))
         .route("/{org_id}/audit/ingest", post(audit::ingest::ingest))
+        .route("/{org_id}/security-events", get(audit::security_event::list))
+        .route("/{org_id}/security-events/{event_id}", get(audit::security_event::detail))
+        .route("/{org_id}/security-events/{event_id}/actions", get(audit::security_event::actions))
+        .route("/{org_id}/security-events/{event_id}/acknowledge", post(audit::security_event::acknowledge))
+        .route("/{org_id}/security-events/{event_id}/resolve", post(audit::security_event::resolve))
+        .route("/{org_id}/security-events/{event_id}/close", post(audit::security_event::close))
         .route("/{org_id}/{stream_name}/_multi", post(logs::ingest::multi))
         .route("/{org_id}/{stream_name}/_json", post(logs::ingest::json))
         .route("/{org_id}/_hec", post(logs::ingest::hec))

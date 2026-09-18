@@ -98,7 +98,7 @@ pub struct WindowEvaluation {
 /// Non-fatal outcome of recording an event (the event was not added).
 #[derive(Debug, Clone, PartialEq)]
 pub enum WindowOutcome {
-    Recorded(WindowEvaluation),
+    Recorded(Box<WindowEvaluation>),
     /// The event_id is already in the window (not re-counted).
     Duplicate,
     /// The event is older than the current window start (ignored).
@@ -250,7 +250,7 @@ impl WindowStateManager {
             .map(|e| e.event_id.clone())
             .collect();
 
-        Ok(WindowOutcome::Recorded(WindowEvaluation {
+        Ok(WindowOutcome::Recorded(Box::new(WindowEvaluation {
             tenant_id: m.tenant_id.clone(),
             rule_id: m.rule_id.clone(),
             rule_version: m.rule_version.clone(),
@@ -263,7 +263,7 @@ impl WindowStateManager {
             threshold_crossed: crossed,
             sample_event_ids,
             episode_started_at: state.episode_started_at,
-        }))
+        })))
     }
 
     /// Enforce per-tenant then global capacity. Expired windows are reclaimed

@@ -173,7 +173,7 @@ fn eval(rule: &RuleDefinition, event: &AuditEvent) -> EvaluationResult {
 
 fn assert_matched(result: EvaluationResult) -> RuleMatch {
     match result {
-        EvaluationResult::Matched(m) => m,
+        EvaluationResult::Matched(m) => *m,
         EvaluationResult::NotMatched => panic!("expected matched"),
         EvaluationResult::Error(e) => panic!("expected matched, got error: {e}"),
     }

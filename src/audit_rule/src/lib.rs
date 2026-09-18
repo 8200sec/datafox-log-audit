@@ -47,8 +47,9 @@ pub use evaluator::{EvaluationError, EvaluationResult, RuleEvaluator, RuleMatch}
 pub use pipeline::{DetectionOutcome, DetectionPipeline, PipelineStats, PipelineStatsSnapshot};
 pub use registry::{MAX_ACTIVE_RULES, RuleRegistry, RuleRegistryError};
 pub use repository::{
-    CreateOutcome, RepositoryError, SecurityEventRepository, SecurityEventUpdate,
-    SqliteSecurityEventRepository, UpdateOutcome,
+    CreateOutcome, ListPage, RepositoryError, SecurityEventAction, SecurityEventFilter,
+    SecurityEventRepository, SecurityEventUpdate, SortOrder, SqliteSecurityEventRepository,
+    TransitionOutcome, UpdateOutcome,
 };
 pub use resolve::{TypedValue, resolve_field};
 pub use rule::{

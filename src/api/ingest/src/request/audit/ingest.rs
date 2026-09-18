@@ -56,15 +56,28 @@ fn dispatcher() -> &'static Dispatcher {
 
 static DETECTION_PIPELINE: OnceLock<DetectionPipeline> = OnceLock::new();
 
+/// Shared embedded SQLite repository, opened lazily on first use. Both the
+/// detection pipeline and the SecurityEvent API read/write through this single
+/// instance so window state and workflow state agree.
+pub(crate) fn repository() -> Arc<dyn SecurityEventRepository> {
+    static REPOSITORY: OnceLock<Arc<dyn SecurityEventRepository>> = OnceLock::new();
+    REPOSITORY
+        .get_or_init(|| {
+            let db_path =
+                std::env::var("ZO_DATAFOX_DB").unwrap_or_else(|_| "datafox.db".to_string());
+            Arc::new(
+                SqliteSecurityEventRepository::open(std::path::Path::new(&db_path))
+                    .unwrap_or_else(|e| panic!("failed to open datafox DB {db_path}: {e}")),
+            )
+        })
+        .clone()
+}
+
 /// The shared detection pipeline (built-in rules + in-memory window state +
 /// embedded SQLite repository). Initialized lazily on first audit ingest.
 fn detection_pipeline() -> &'static DetectionPipeline {
     DETECTION_PIPELINE.get_or_init(|| {
-        let db_path = std::env::var("ZO_DATAFOX_DB").unwrap_or_else(|_| "datafox.db".to_string());
-        let repo: Arc<dyn SecurityEventRepository> = Arc::new(
-            SqliteSecurityEventRepository::open(std::path::Path::new(&db_path))
-                .unwrap_or_else(|e| panic!("failed to open datafox DB {db_path}: {e}")),
-        );
+        let repo = repository();
         let mut registry = RuleRegistry::new();
         for rule in default_rules() {
             if let Err(e) = registry.register(rule) {

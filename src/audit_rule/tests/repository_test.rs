@@ -17,8 +17,8 @@ use std::sync::Arc;
 
 use audit_rule::{
     Category, CreateOutcome, DetectionKey, MAX_RELATED_EVENT_IDS, SecurityEvent,
-    SecurityEventRepository, SecurityEventUpdate, Severity, SqliteSecurityEventRepository, Status,
-    UpdateOutcome,
+    SecurityEventFilter, SecurityEventRepository, SecurityEventUpdate, Severity, SortOrder,
+    SqliteSecurityEventRepository, Status, TransitionOutcome, UpdateOutcome,
 };
 use serde_json::json;
 
@@ -470,4 +470,282 @@ fn persistence_across_reopen() {
     let found = repo.get_by_event_id("tenant-a", "evt-1").unwrap().unwrap();
     assert_eq!(found.event_count, 5);
     let _ = std::fs::remove_file(&path);
+}
+
+fn seed(repo: &SqliteSecurityEventRepository, tenant: &str, event_id: &str) {
+    let k = key(tenant, "r", "1.0.0", "g=1");
+    repo.create(&make_event(tenant, event_id, "r", 10, 1009), &k, "ep-1")
+        .unwrap();
+}
+
+#[test]
+fn transition_full_lifecycle() {
+    let repo = SqliteSecurityEventRepository::open_in_memory().unwrap();
+    seed(&repo, "tenant-a", "evt-1");
+
+    assert_eq!(
+        repo.transition_status(
+            "tenant-a",
+            "evt-1",
+            Status::Acknowledged,
+            "alice",
+            None,
+            2000
+        )
+        .unwrap(),
+        TransitionOutcome::Transitioned {
+            status: Status::Acknowledged
+        }
+    );
+    assert_eq!(
+        repo.transition_status(
+            "tenant-a",
+            "evt-1",
+            Status::Resolved,
+            "alice",
+            Some("fixed"),
+            2001
+        )
+        .unwrap(),
+        TransitionOutcome::Transitioned {
+            status: Status::Resolved
+        }
+    );
+    assert_eq!(
+        repo.transition_status("tenant-a", "evt-1", Status::Closed, "bob", None, 2002)
+            .unwrap(),
+        TransitionOutcome::Transitioned {
+            status: Status::Closed
+        }
+    );
+
+    let actions = repo.list_actions("tenant-a", "evt-1").unwrap();
+    assert_eq!(actions.len(), 3);
+    assert_eq!(actions[0].action, "acknowledge");
+    assert_eq!(actions[0].from_status, Status::Open);
+    assert_eq!(actions[0].to_status, Status::Acknowledged);
+    assert_eq!(actions[0].actor_id, "alice");
+    assert_eq!(actions[0].comment, None);
+    assert_eq!(actions[1].action, "resolve");
+    assert_eq!(actions[1].comment.as_deref(), Some("fixed"));
+    assert_eq!(actions[2].action, "close");
+    assert_eq!(actions[2].actor_id, "bob");
+}
+
+#[test]
+fn transition_illegal_target_is_conflict() {
+    let repo = SqliteSecurityEventRepository::open_in_memory().unwrap();
+    seed(&repo, "tenant-a", "evt-1");
+
+    // Resolved → Acknowledged is illegal.
+    repo.transition_status("tenant-a", "evt-1", Status::Resolved, "alice", None, 2000)
+        .unwrap();
+    assert_eq!(
+        repo.transition_status(
+            "tenant-a",
+            "evt-1",
+            Status::Acknowledged,
+            "alice",
+            None,
+            2001
+        )
+        .unwrap(),
+        TransitionOutcome::Conflict
+    );
+    // Status untouched; only the legal transition recorded an action.
+    assert_eq!(
+        repo.get_by_event_id("tenant-a", "evt-1")
+            .unwrap()
+            .unwrap()
+            .status,
+        Status::Resolved
+    );
+    assert_eq!(repo.list_actions("tenant-a", "evt-1").unwrap().len(), 1);
+}
+
+#[test]
+fn transition_missing_event_is_not_found() {
+    let repo = SqliteSecurityEventRepository::open_in_memory().unwrap();
+    assert_eq!(
+        repo.transition_status(
+            "tenant-a",
+            "nope",
+            Status::Acknowledged,
+            "alice",
+            None,
+            2000
+        )
+        .unwrap(),
+        TransitionOutcome::NotFound
+    );
+}
+
+#[test]
+fn transition_cross_tenant_is_not_found() {
+    let repo = SqliteSecurityEventRepository::open_in_memory().unwrap();
+    seed(&repo, "tenant-a", "evt-1");
+    assert_eq!(
+        repo.transition_status(
+            "tenant-b",
+            "evt-1",
+            Status::Acknowledged,
+            "alice",
+            None,
+            2000
+        )
+        .unwrap(),
+        TransitionOutcome::NotFound
+    );
+}
+
+#[test]
+fn transition_only_changes_status_and_updated_at() {
+    let repo = SqliteSecurityEventRepository::open_in_memory().unwrap();
+    seed(&repo, "tenant-a", "evt-1");
+    let before = repo.get_by_event_id("tenant-a", "evt-1").unwrap().unwrap();
+
+    repo.transition_status(
+        "tenant-a",
+        "evt-1",
+        Status::Acknowledged,
+        "alice",
+        None,
+        5000,
+    )
+    .unwrap();
+    let after = repo.get_by_event_id("tenant-a", "evt-1").unwrap().unwrap();
+
+    assert_eq!(after.status, Status::Acknowledged);
+    assert_eq!(after.updated_at, 5000);
+    assert_eq!(after.event_count, before.event_count);
+    assert_eq!(after.last_seen, before.last_seen);
+    assert_eq!(after.rule_id, before.rule_id);
+    assert_eq!(after.severity, before.severity);
+    assert_eq!(after.evidence, before.evidence);
+    assert_eq!(after.related_event_ids, before.related_event_ids);
+    assert_eq!(after.created_at, before.created_at);
+}
+
+#[test]
+fn list_filtered_by_status_and_severity() {
+    let repo = SqliteSecurityEventRepository::open_in_memory().unwrap();
+    for (event_id, group) in [("evt-1", "g=1"), ("evt-2", "g=2")] {
+        let k = key("tenant-a", "r", "1.0.0", group);
+        repo.create(&make_event("tenant-a", event_id, "r", 10, 1009), &k, "ep-1")
+            .unwrap();
+    }
+    let k_b = key("tenant-b", "r", "1.0.0", "g=1");
+    repo.create(
+        &make_event("tenant-b", "evt-3", "r", 10, 1009),
+        &k_b,
+        "ep-1",
+    )
+    .unwrap();
+
+    // Acknowledge evt-1 only.
+    repo.transition_status(
+        "tenant-a",
+        "evt-1",
+        Status::Acknowledged,
+        "alice",
+        None,
+        2000,
+    )
+    .unwrap();
+
+    let all = repo
+        .list_filtered(
+            "tenant-a",
+            &SecurityEventFilter {
+                limit: 50,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(all.total, 2);
+    assert_eq!(all.items.len(), 2);
+
+    let acked = repo
+        .list_filtered(
+            "tenant-a",
+            &SecurityEventFilter {
+                status: Some(Status::Acknowledged),
+                limit: 50,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(acked.total, 1);
+    assert_eq!(acked.items[0].event_id, "evt-1");
+
+    let open = repo
+        .list_filtered(
+            "tenant-a",
+            &SecurityEventFilter {
+                status: Some(Status::Open),
+                limit: 50,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(open.total, 1);
+    assert_eq!(open.items[0].event_id, "evt-2");
+}
+
+#[test]
+fn list_filtered_limit_offset_and_sort() {
+    let repo = SqliteSecurityEventRepository::open_in_memory().unwrap();
+    // Distinct last_seen values to exercise ordering.
+    for (i, ls) in [100, 300, 200].iter().enumerate() {
+        let k = key("tenant-a", "r", "1.0.0", &format!("g={i}"));
+        let mut e = make_event("tenant-a", &format!("evt-{i}"), "r", 1, *ls);
+        e.severity = Severity::Low;
+        repo.create(&e, &k, "ep-1").unwrap();
+    }
+
+    let desc = repo
+        .list_filtered(
+            "tenant-a",
+            &SecurityEventFilter {
+                sort: SortOrder::LastSeenDesc,
+                limit: 50,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    let ids: Vec<&str> = desc.items.iter().map(|e| e.event_id.as_str()).collect();
+    assert_eq!(ids, vec!["evt-1", "evt-2", "evt-0"]);
+
+    let page = repo
+        .list_filtered(
+            "tenant-a",
+            &SecurityEventFilter {
+                sort: SortOrder::LastSeenDesc,
+                limit: 2,
+                offset: 1,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(page.total, 3);
+    let ids: Vec<&str> = page.items.iter().map(|e| e.event_id.as_str()).collect();
+    assert_eq!(ids, vec!["evt-2", "evt-0"]);
+}
+
+#[test]
+fn list_filtered_scoped_to_tenant() {
+    let repo = SqliteSecurityEventRepository::open_in_memory().unwrap();
+    seed(&repo, "tenant-a", "evt-1");
+    seed(&repo, "tenant-b", "evt-2");
+    let page = repo
+        .list_filtered(
+            "tenant-a",
+            &SecurityEventFilter {
+                limit: 50,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(page.total, 1);
+    assert_eq!(page.items[0].event_id, "evt-1");
 }

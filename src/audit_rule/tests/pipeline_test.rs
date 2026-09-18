@@ -20,10 +20,10 @@ use audit_parser::{
     TenantContext, default_dispatcher,
 };
 use audit_rule::{
-    CreateOutcome, DetectionOutcome, DetectionPipeline, RepositoryError, RuleRegistry,
-    RuleRegistryError, SecurityEvent, SecurityEventRepository, SecurityEventUpdate, Severity,
-    SqliteSecurityEventRepository, Status, UpdateOutcome, WindowLimits, default_rules,
-    ssh_bruteforce,
+    CreateOutcome, DetectionOutcome, DetectionPipeline, ListPage, RepositoryError, RuleRegistry,
+    RuleRegistryError, SecurityEvent, SecurityEventAction, SecurityEventFilter,
+    SecurityEventRepository, SecurityEventUpdate, Severity, SqliteSecurityEventRepository, Status,
+    TransitionOutcome, UpdateOutcome, WindowLimits, default_rules, ssh_bruteforce,
 };
 use serde_json::Value;
 
@@ -401,6 +401,34 @@ fn repository_error_is_detection_error() {
             Ok(None)
         }
         fn list(&self, _t: &str, _l: u32) -> Result<Vec<SecurityEvent>, RepositoryError> {
+            Ok(vec![])
+        }
+        fn transition_status(
+            &self,
+            _t: &str,
+            _id: &str,
+            _to: audit_rule::Status,
+            _actor: &str,
+            _comment: Option<&str>,
+            _now: i64,
+        ) -> Result<TransitionOutcome, RepositoryError> {
+            Ok(TransitionOutcome::NotFound)
+        }
+        fn list_filtered(
+            &self,
+            _t: &str,
+            _f: &SecurityEventFilter,
+        ) -> Result<ListPage<SecurityEvent>, RepositoryError> {
+            Ok(ListPage {
+                items: vec![],
+                total: 0,
+            })
+        }
+        fn list_actions(
+            &self,
+            _t: &str,
+            _id: &str,
+        ) -> Result<Vec<SecurityEventAction>, RepositoryError> {
             Ok(vec![])
         }
     }

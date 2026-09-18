@@ -44,7 +44,7 @@ pub struct RuleMatch {
 /// reported as `Error` — never silently folded into `NotMatched`.
 #[derive(Debug, Clone, PartialEq)]
 pub enum EvaluationResult {
-    Matched(RuleMatch),
+    Matched(Box<RuleMatch>),
     NotMatched,
     Error(EvaluationError),
 }
@@ -88,7 +88,7 @@ impl RuleEvaluator {
                     "rule_type": rule.rule_type.as_str(),
                     "matched_fields": matched_fields,
                 });
-                EvaluationResult::Matched(RuleMatch {
+                EvaluationResult::Matched(Box::new(RuleMatch {
                     rule_id: rule.id.clone(),
                     rule_version: rule.version.clone(),
                     tenant_id: event.tenant_id.clone(),
@@ -96,7 +96,7 @@ impl RuleEvaluator {
                     matched_at: event.timestamp,
                     group_values,
                     evidence,
-                })
+                }))
             }
             Ok(false) => EvaluationResult::NotMatched,
             Err(e) => EvaluationResult::Error(e),

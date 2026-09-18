@@ -45,6 +45,22 @@ pub enum Status {
     Closed,
 }
 
+impl Status {
+    /// Whether `self → target` is a legal workflow transition. `closed` is
+    /// terminal — nothing leaves it.
+    pub fn can_transition_to(self, target: Status) -> bool {
+        match self {
+            Status::Open => matches!(
+                target,
+                Status::Acknowledged | Status::Resolved | Status::Closed
+            ),
+            Status::Acknowledged => matches!(target, Status::Resolved | Status::Closed),
+            Status::Resolved => matches!(target, Status::Closed),
+            Status::Closed => false,
+        }
+    }
+}
+
 /// High-level security event category. MITRE ATT&CK is intentionally NOT part of
 /// the core schema — any ATT&CK metadata later lands in `evidence`/`attributes`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
