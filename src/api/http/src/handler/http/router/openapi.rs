@@ -16,7 +16,7 @@
 use config::{get_config, meta::stream::StreamType};
 #[cfg(feature = "enterprise")]
 use o2_ratelimit::dataresource::default_rules::OpenapiInfo;
-use openobserve_api_ingest::request::{clusters, logs, metrics, rum};
+use openobserve_api_ingest::request::{audit, clusters, logs, metrics, rum};
 use openobserve_api_management::request::{
     gen_ai, keys, kv, service_accounts, service_streams, short_url, status, stream, synthetics,
 };
@@ -71,6 +71,7 @@ use crate::{
         logs::ingest::bulk,
         logs::ingest::multi,
         logs::ingest::json,
+        audit::ingest::ingest,
         logs::loki::loki_push,
         openobserve_api_search::traces::traces_write,
         openobserve_api_search::traces::get_latest_traces,

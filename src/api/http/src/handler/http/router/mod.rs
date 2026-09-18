@@ -25,7 +25,7 @@ use axum::{
 };
 use config::get_config;
 use openobserve_api_common::X_O2_ASSISTANT_SESSION_ID;
-use openobserve_api_ingest::request::{clusters, logs, metrics, rum};
+use openobserve_api_ingest::request::{audit, clusters, logs, metrics, rum};
 #[cfg(feature = "cloud")]
 use openobserve_api_management::request::cloud;
 #[cfg(feature = "profiling")]
@@ -807,6 +807,7 @@ pub fn service_routes() -> Router {
 
         // Logs ingestion
         .route("/{org_id}/_bulk", post(logs::ingest::bulk))
+        .route("/{org_id}/audit/ingest", post(audit::ingest::ingest))
         .route("/{org_id}/{stream_name}/_multi", post(logs::ingest::multi))
         .route("/{org_id}/{stream_name}/_json", post(logs::ingest::json))
         .route("/{org_id}/_hec", post(logs::ingest::hec))

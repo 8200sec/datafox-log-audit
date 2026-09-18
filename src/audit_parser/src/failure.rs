@@ -13,8 +13,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use serde::Serialize;
+
 /// Stable failure codes — keep in sync with the frontend contract.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum FailureCode {
     UnsupportedFormat,
     MissingRequiredField,
@@ -40,7 +43,8 @@ impl FailureCode {
 }
 
 /// Which phase the failure happened in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum FailureStage {
     Detect,
     Parse,
@@ -58,14 +62,20 @@ impl FailureStage {
 }
 
 /// Structured failure — a log that could not become an AuditEvent, never dropped.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParseFailure {
+    #[serde(rename = "_timestamp")]
     pub timestamp: i64,
     pub raw_log: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub source_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub source_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub collector_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub parser_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub parser_version: Option<String>,
     pub failure_stage: FailureStage,
     pub failure_code: FailureCode,

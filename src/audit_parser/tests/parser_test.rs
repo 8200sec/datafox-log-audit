@@ -316,3 +316,53 @@ fn result_normalization() {
         audit_parser::EventResult::Unknown
     );
 }
+
+#[test]
+fn audit_event_serializes_with_schema_fields() {
+    let event = match make_dispatcher().dispatch(&make_input(), FIXED_NOW) {
+        DispatchResult::Ok(e) => e,
+        DispatchResult::Failure(f) => panic!("expected ok: {}", f.failure_message),
+    };
+    let v = serde_json::to_value(&*event).unwrap();
+    for key in [
+        "_timestamp",
+        "event_id",
+        "tenant_id",
+        "source_type",
+        "source_name",
+        "collector_id",
+        "severity",
+        "result",
+        "message",
+        "raw_log",
+        "parser_id",
+        "parser_version",
+        "ingest_timestamp",
+        "event_attributes",
+    ] {
+        assert!(v.get(key).is_some(), "missing field {key}");
+    }
+}
+
+#[test]
+fn parse_failure_serializes_with_failure_fields() {
+    let mut r = ParserRegistry::new();
+    r.register(Arc::new(ThrowingParser)).unwrap();
+    r.set_fallback(Arc::new(FallbackParser));
+    let d = Dispatcher::new(r, Normalizer::new());
+    let failure = match d.dispatch(&make_input(), FIXED_NOW) {
+        DispatchResult::Failure(f) => f,
+        DispatchResult::Ok(_) => panic!("expected failure"),
+    };
+    let v = serde_json::to_value(&failure).unwrap();
+    for key in [
+        "_timestamp",
+        "raw_log",
+        "failure_stage",
+        "failure_code",
+        "failure_message",
+    ] {
+        assert!(v.get(key).is_some(), "missing field {key}");
+    }
+    assert_eq!(v["failure_code"], "PARSER_EXCEPTION");
+}

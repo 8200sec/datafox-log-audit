@@ -113,37 +113,52 @@ INVALID_IP | INVALID_ENUM | PARSER_EXCEPTION | NORMALIZATION_FAILED`。
 
 Parser panic/error 一律转 `ParseFailure`，**不静默丢日志**。
 
-## 8. Audit Ingestion API 设计（服务端入口）
+## 8. Audit Ingestion API（服务端入口）
 
-推荐路由（遵循 OpenObserve `context_path="/api"` + `path="/{org_id}/..."` 约定）：
+已实现路由（遵循 OpenObserve `context_path="/api"` + `path="/{org_id}/..."` 约定）：
 
 ```
 POST /api/{org_id}/audit/ingest
 ```
 
+实现位置：`src/api/ingest/src/request/audit/ingest.rs`（注册于
+`src/api/http/.../router/mod.rs`）。
+
 流程：
 
-1. **authenticate** → 从已认证请求上下文获得可信 `org_id`/`tenant_id`。
-2. 对每条 `raw_log` 构造 `RawLogInput{ raw_log, received_at, source_type?, source_name?, collector_id?, tenant }`。
+1. **authenticate** → 从 `Headers<UserEmail>` 提取已认证用户；`org_id` 来自路径（可信服务端上下文）。
+2. 构造 `RawLogInput{ raw_log, received_at, source_type?, source_name?, collector_id?, tenant_id=org_id }`。
 3. **Dispatcher.dispatch** → `Ok(AuditEvent)` 或 `Failure(ParseFailure)`。
-4. `Ok` 事件批量走 **OpenObserve existing ingestion**（复用现有 bulk ingest 服务）写 `audit_events`。
-5. `Failure` 走 `audit_parse_failures`。
+4. `Ok` → 序列化 → `logs::ingest::ingest(... "audit_events" ...)`（复用现有 bulk ingestion）。
+5. `Failure` → 序列化 → `... "audit_parse_failures" ...`。
+6. 若 `audit_parse_failures` 写入也失败 → 返回 **500** + `log::error!`（不 swallow）。
 
-请求示例：
+**Single-event 请求**（当前实现）：
 
 ```json
 {
-  "raw_logs": [
-    { "raw_log": "<134>...", "source_type": "firewall", "source_name": "edge-fw-01", "collector_id": "syslog-3" }
-  ]
+  "source_type": "firewall",
+  "source_name": "edge-fw-01",
+  "collector_id": "syslog-3",
+  "raw_log": "<134>Oct 11 22:14:15 edge-fw-01 %ASA-4-106023: Deny tcp ..."
 }
 ```
 
-> **接入说明（待 W3 后续任务确认）**：本任务只设计 API 与 Runtime，不实际接线。
-> 接入现有 ingestion service 时，若需要修改 Storage/WAL/Ingester 等 protected core，
-> 将**停止并单独报告方案**，不会直接改动。现有 bulk ingestion 入口在
-> `src/core/src/logs/ingest.rs` / `bulk.rs`，属于 `src/core`（非 protected 清单），
-> 预期可通过公开函数调用复用。
+curl：
+
+```bash
+curl -s -X POST "http://localhost:5080/api/{org_id}/audit/ingest" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"source_type":"firewall","source_name":"edge-fw-01","raw_log":"<134>... Deny tcp ..."}'
+```
+
+> **Batch contract（后续）**：当前只支持 single event。批量设计为
+> `{ "events": [ {…}, {…} ] }`，一次 dispatch 多条后合并为单次
+> `IngestionRequest::JsonValues(Bulk, vec![...])` 写入。待需要时补充。
+
+> **接入说明**：复用 `src/core/src/logs/ingest.rs`（`logs::ingest::ingest`），
+> 属 `src/core`（非 protected 清单），**未改动** Storage/WAL/Ingester/Parquet writer。
 
 ## 9. 新增 Parser 教程（Rust）
 

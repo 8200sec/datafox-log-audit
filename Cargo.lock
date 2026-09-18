@@ -7903,6 +7903,7 @@ dependencies = [
 name = "openobserve-api-ingest"
 version = "0.1.0"
 dependencies = [
+ "audit_parser",
  "axum",
  "chrono",
  "common",

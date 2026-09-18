@@ -36,3 +36,14 @@ pub use types::{
     AuditEvent, DispatchResult, EventResult, ParsedEvent, RawLogInput, Severity, SourceType,
     TenantContext, TransportMetadata,
 };
+
+/// Build a dispatcher pre-loaded with the current built-in parsers (Dummy for
+/// tests, Generic Fallback for everything else). Real vendor parsers register
+/// into the same registry in later tasks.
+pub fn default_dispatcher() -> Dispatcher {
+    let mut registry = ParserRegistry::new();
+    // Ignore a duplicate/error on re-registration; the built-ins are fixed.
+    let _ = registry.register(std::sync::Arc::new(DummyParser));
+    registry.set_fallback(std::sync::Arc::new(FallbackParser));
+    Dispatcher::new(registry, Normalizer::new())
+}
