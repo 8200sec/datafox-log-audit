@@ -330,7 +330,14 @@ fn window_expiration_and_rearm() {
     let e = eval(rec(
         &mut mgr,
         &r,
-        &m("t", "builtin.test", "1.0.0", "e3", 5000, src_ip("10.0.0.1")),
+        &m(
+            "t",
+            "builtin.test",
+            "1.0.0",
+            "e3",
+            400000,
+            src_ip("10.0.0.1"),
+        ),
     ));
     assert_eq!(e.count, 1);
     assert!(!e.threshold_reached);
@@ -359,19 +366,40 @@ fn second_threshold_crossing_after_rearm() {
     rec(
         &mut mgr,
         &r,
-        &m("t", "builtin.test", "1.0.0", "b1", 5000, src_ip("10.0.0.1")),
+        &m(
+            "t",
+            "builtin.test",
+            "1.0.0",
+            "b1",
+            400000,
+            src_ip("10.0.0.1"),
+        ),
     )
     .unwrap();
     rec(
         &mut mgr,
         &r,
-        &m("t", "builtin.test", "1.0.0", "b2", 5001, src_ip("10.0.0.1")),
+        &m(
+            "t",
+            "builtin.test",
+            "1.0.0",
+            "b2",
+            400001,
+            src_ip("10.0.0.1"),
+        ),
     )
     .unwrap();
     let e = eval(rec(
         &mut mgr,
         &r,
-        &m("t", "builtin.test", "1.0.0", "b3", 5002, src_ip("10.0.0.1")),
+        &m(
+            "t",
+            "builtin.test",
+            "1.0.0",
+            "b3",
+            400002,
+            src_ip("10.0.0.1"),
+        ),
     ));
     assert_eq!(e.count, 3);
     assert!(e.threshold_crossed);
@@ -409,10 +437,17 @@ fn out_of_window_event_ignored() {
     rec(
         &mut mgr,
         &r,
-        &m("t", "builtin.test", "1.0.0", "e1", 5000, src_ip("10.0.0.1")),
+        &m(
+            "t",
+            "builtin.test",
+            "1.0.0",
+            "e1",
+            500000,
+            src_ip("10.0.0.1"),
+        ),
     )
     .unwrap();
-    // An event older than the window (anchored at 5000) is ignored.
+    // An event older than the window (anchored at 500000) is ignored.
     let out = rec(
         &mut mgr,
         &r,
@@ -633,7 +668,7 @@ fn expired_cleanup_reclaims_capacity() {
             "builtin.test",
             "1.0.0",
             "e2",
-            100_000,
+            302000,
             src_ip("10.0.0.2"),
         ),
     ));

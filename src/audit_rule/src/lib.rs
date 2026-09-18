@@ -26,8 +26,11 @@
 //! window-state manager, and the SecurityEvent schema.
 
 mod builder;
+mod builtins;
 mod condition;
 mod evaluator;
+mod pipeline;
+mod registry;
 mod repository;
 mod resolve;
 mod rule;
@@ -35,11 +38,14 @@ mod security_event;
 mod window;
 
 pub use builder::{BuilderError, DetectionKey, SecurityEventBuilder, SecurityEventMutation};
+pub use builtins::{default_rules, repeated_pam_failure, ssh_bruteforce, suspicious_sudo_shadow};
 pub use condition::{
     Condition, FieldPath, LeafCondition, MAX_CONDITION_DEPTH, Operator, STANDARD_FIELDS,
     is_valid_field_path,
 };
 pub use evaluator::{EvaluationError, EvaluationResult, RuleEvaluator, RuleMatch};
+pub use pipeline::{DetectionOutcome, DetectionPipeline, PipelineStats, PipelineStatsSnapshot};
+pub use registry::{MAX_ACTIVE_RULES, RuleRegistry, RuleRegistryError};
 pub use repository::{
     CreateOutcome, RepositoryError, SecurityEventRepository, SecurityEventUpdate,
     SqliteSecurityEventRepository, UpdateOutcome,

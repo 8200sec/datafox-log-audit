@@ -75,7 +75,7 @@ pub enum UpdateOutcome {
 /// Storage abstraction for SecurityEvent current state. The SQLite impl is the
 /// v1 low-resource single-node store; a future PostgreSQL impl can replace it
 /// behind the same trait.
-pub trait SecurityEventRepository {
+pub trait SecurityEventRepository: Send + Sync {
     /// Insert a new SecurityEvent. Idempotent on `(tenant, detection_key,
     /// episode_id)` — a retry returns `AlreadyExists` instead of a duplicate.
     fn create(

@@ -13,9 +13,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 use audit_parser::{DispatchResult, Dispatcher, RawLogInput, TenantContext, default_dispatcher};
+use audit_rule::{
+    DetectionOutcome, DetectionPipeline, RuleRegistry, SecurityEventRepository,
+    SqliteSecurityEventRepository, default_rules,
+};
 use axum::{
     Json,
     body::Bytes,
@@ -48,6 +52,53 @@ static DISPATCHER: OnceLock<Dispatcher> = OnceLock::new();
 
 fn dispatcher() -> &'static Dispatcher {
     DISPATCHER.get_or_init(default_dispatcher)
+}
+
+static DETECTION_PIPELINE: OnceLock<DetectionPipeline> = OnceLock::new();
+
+/// The shared detection pipeline (built-in rules + in-memory window state +
+/// embedded SQLite repository). Initialized lazily on first audit ingest.
+fn detection_pipeline() -> &'static DetectionPipeline {
+    DETECTION_PIPELINE.get_or_init(|| {
+        let db_path = std::env::var("ZO_DATAFOX_DB").unwrap_or_else(|_| "datafox.db".to_string());
+        let repo: Arc<dyn SecurityEventRepository> = Arc::new(
+            SqliteSecurityEventRepository::open(std::path::Path::new(&db_path))
+                .unwrap_or_else(|e| panic!("failed to open datafox DB {db_path}: {e}")),
+        );
+        let mut registry = RuleRegistry::new();
+        for rule in default_rules() {
+            if let Err(e) = registry.register(rule) {
+                log::error!("failed to register built-in rule: {e}");
+            }
+        }
+        DetectionPipeline::new(&registry, repo)
+    })
+}
+
+/// Run detection on an already-ingested AuditEvent. Best-effort: a detection
+/// error is logged, never rolls back the successful audit ingestion.
+fn run_detection(event: &audit_parser::AuditEvent, now: i64) {
+    let outcomes = detection_pipeline().process(event, now);
+    for outcome in outcomes {
+        match outcome {
+            DetectionOutcome::SecurityEventCreated { rule_id, event_id } => {
+                log::info!("security event created: rule={rule_id} event={event_id}");
+            }
+            DetectionOutcome::SecurityEventUpdated { rule_id, event_id } => {
+                log::info!("security event updated: rule={rule_id} event={event_id}");
+            }
+            DetectionOutcome::CapacityExceeded { rule_id } => {
+                log::warn!("detection window capacity exceeded: rule={rule_id}");
+            }
+            DetectionOutcome::DetectionError {
+                rule_id,
+                error_code,
+            } => {
+                log::error!("detection error: rule={rule_id:?} code={error_code}");
+            }
+            _ => {}
+        }
+    }
 }
 
 /// Audit log ingestion entry point: HTTP → Parser → Normalizer → OpenObserve
@@ -100,14 +151,23 @@ pub async fn ingest(
                 Ok(v) => v,
                 Err(e) => return server_error(&org_id, "audit_events", &e.to_string()),
             };
-            ingest_values(&org_id, "audit_events", vec![value], user_email).await
+            let (response, success) =
+                ingest_values(&org_id, "audit_events", vec![value], user_email).await;
+            // Detection runs only after the AuditEvent is durably ingested; it
+            // never rolls back a successful ingestion.
+            if success {
+                run_detection(&event, now);
+            }
+            response
         }
         DispatchResult::Failure(failure) => {
             let value = match serde_json::to_value(&failure) {
                 Ok(v) => v,
                 Err(e) => return server_error(&org_id, "audit_parse_failures", &e.to_string()),
             };
-            ingest_values(&org_id, "audit_parse_failures", vec![value], user_email).await
+            ingest_values(&org_id, "audit_parse_failures", vec![value], user_email)
+                .await
+                .0
         }
     }
 }
@@ -129,10 +189,10 @@ async fn ingest_values(
     stream: &str,
     values: Vec<serde_json::Value>,
     user_email: UserEmail,
-) -> Response {
+) -> (Response, bool) {
     let request = match build_ingestion_request(&values) {
         Ok(r) => r,
-        Err(e) => return server_error(org_id, stream, &e.to_string()),
+        Err(e) => return (server_error(org_id, stream, &e.to_string()), false),
     };
     let thread_id = get_thread_id();
     match logs::ingest::ingest(
@@ -146,11 +206,15 @@ async fn ingest_values(
     )
     .await
     {
-        Ok(v) => match v.code {
-            503 => (StatusCode::SERVICE_UNAVAILABLE, Json(v)).into_response(),
-            _ => MetaHttpResponse::json(v),
-        },
-        Err(e) => server_error(org_id, stream, &e.to_string()),
+        Ok(v) => {
+            let success = !v.status.iter().any(|s| s.status.failed > 0);
+            let response = match v.code {
+                503 => (StatusCode::SERVICE_UNAVAILABLE, Json(v)).into_response(),
+                _ => MetaHttpResponse::json(v),
+            };
+            (response, success)
+        }
+        Err(e) => (server_error(org_id, stream, &e.to_string()), false),
     }
 }
 

@@ -124,7 +124,7 @@ pub enum WindowError {
 #[derive(Debug)]
 struct WindowState {
     entries: Vec<WindowEntry>,
-    window_seconds: i64,
+    window_ms: i64,
     previous_reached: bool,
     episode_started_at: Option<i64>,
 }
@@ -172,7 +172,8 @@ impl WindowStateManager {
             .aggregation
             .as_ref()
             .ok_or(WindowError::InvalidWindow)?;
-        let window_seconds = agg.window_seconds as i64;
+        // DSL `window_seconds` is in seconds; timestamps are epoch milliseconds.
+        let window_ms = (agg.window_seconds as i64) * 1000;
         let threshold = agg.threshold;
 
         let group_key =
@@ -194,7 +195,7 @@ impl WindowStateManager {
                 key.clone(),
                 WindowState {
                     entries: Vec::new(),
-                    window_seconds,
+                    window_ms,
                     previous_reached: false,
                     episode_started_at: None,
                 },
@@ -209,12 +210,12 @@ impl WindowStateManager {
         // Out-of-window: the event predates the current window (anchored at the
         // latest seen event). Ignore it without disturbing the window.
         if let Some(latest) = state.entries.last()
-            && entry.timestamp < latest.timestamp - window_seconds
+            && entry.timestamp < latest.timestamp - window_ms
         {
             return Ok(WindowOutcome::OutOfWindow);
         }
         // Sliding window: evict entries that fell out of the window.
-        let window_start = entry.timestamp - window_seconds;
+        let window_start = entry.timestamp - window_ms;
         state.entries.retain(|e| e.timestamp >= window_start);
         // Duplicate: same event_id already counted.
         if state.entries.iter().any(|e| e.event_id == entry.event_id) {
@@ -301,7 +302,7 @@ impl WindowStateManager {
             .filter(|(_, s)| {
                 s.entries
                     .last()
-                    .is_none_or(|e| e.timestamp < reference_time - s.window_seconds)
+                    .is_none_or(|e| e.timestamp < reference_time - s.window_ms)
             })
             .map(|(k, _)| k.clone())
             .collect();
