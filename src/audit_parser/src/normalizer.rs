@@ -14,9 +14,11 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use chrono::{DateTime, NaiveDateTime};
+use serde_json::{Map, Value, json};
 
 use crate::{
     failure::{FailureCode, FailureStage, ParseFailure},
+    observability::classify_parser,
     types::{AuditEvent, EventResult, ParsedEvent, RawLogInput, Severity, SourceType, Timestamp},
 };
 
@@ -32,6 +34,27 @@ fn generate_event_id(tenant: &str, source: Option<&str>, raw: &str, ts: i64) -> 
 
 fn lower(s: Option<&str>) -> Option<String> {
     s.map(|v| v.to_lowercase())
+}
+
+/// Add `parser_quality` to a parser's attributes so the observability layer can
+/// aggregate specialized/generic/fallback with a plain GROUP BY — no new top-level
+/// AuditEvent field. Attributes are always an object in practice; anything else is
+/// wrapped into a fresh object rather than lost.
+fn with_parser_quality(attrs: Option<Value>, parser_id: &str) -> Option<Value> {
+    let mut map = match attrs {
+        Some(Value::Object(m)) => m,
+        Some(other) => {
+            let mut m = Map::new();
+            m.insert("unmapped".to_string(), other);
+            m
+        }
+        None => Map::new(),
+    };
+    map.insert(
+        "parser_quality".to_string(),
+        json!(classify_parser(parser_id).as_str()),
+    );
+    Some(Value::Object(map))
 }
 
 /// Turns a parser's `ParsedEvent` into a validated `AuditEvent`. Lenient for
@@ -185,7 +208,7 @@ impl Normalizer {
             parser_id: Some(parsed.parser_id.clone()),
             parser_version: Some(parsed.parser_version.clone()),
             ingest_timestamp: now,
-            event_attributes: parsed.attributes.clone(),
+            event_attributes: with_parser_quality(parsed.attributes.clone(), &parsed.parser_id),
         })
     }
 

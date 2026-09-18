@@ -24,6 +24,7 @@ import config from "@/aws-exports";
 import { resolveTraceSearchMode, type TraceSearchMode } from "@/ts/interfaces/traces/trace.types";
 import store from "@/stores";
 import AuditHome from "@/views/AuditHome.vue";
+import ParseStatus from "@/views/ParseStatus.vue";
 import ImportDashboard from "@/views/Dashboards/ImportDashboard.vue";
 import About from "@/views/About.vue";
 import ComingSoon from "@/views/ComingSoon.vue";
@@ -569,6 +570,18 @@ const useRoutes = () => {
       meta: {
         keepAlive: false,
         titleKey: "menu.logSources",
+      },
+    },
+    {
+      path: "parse-status",
+      name: "parseStatus",
+      component: ParseStatus,
+      meta: {
+        keepAlive: false,
+        titleKey: "menu.parseStatus",
+      },
+      beforeEnter(to: any, from: any, next: any) {
+        routeGuard(to, from, next);
       },
     },
     {

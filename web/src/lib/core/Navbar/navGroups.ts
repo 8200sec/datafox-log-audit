@@ -160,6 +160,12 @@ export const NAV_GROUPS: NavGroupDef[] = [
         name: "functionList",
         requires: "functionList",
       },
+      {
+        titleKey: "menu.parseStatus",
+        icon: "query-stats",
+        name: "parseStatus",
+        requires: "parseStatus",
+      },
     ],
   },
   {
