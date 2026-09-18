@@ -3,176 +3,183 @@
 DataFox 日志审计系统的日志 Parser 与 Normalization 框架。为后续 Generic JSON、
 Syslog、Linux、Windows、Firewall、Database 等 Parser 提供统一接口与调度路径。
 
-> 实现：`web/src/parser/`（纯 TypeScript，无浏览器 API，设计为运行于服务器端/日志摄取路径）。
-> 数据模型：见 `docs/audit-event-schema.md`（AuditEvent v1）。
+> **Parser Runtime = Backend Rust（`src/audit_parser/`）。** 所有真实日志解析只发生在服务端
+> 摄取路径。**前端不执行任何真实日志解析** —— 前端只消费 `AuditEvent` 契约做展示与校验
+> （`web/src/schemas/audit-event/`）。
 
 ## 1. 架构
 
 ```
- RawLogInput ──► ParserRegistry.detect ──► 命中? ──► Parser.parse ──► ParsedEvent
-      │                                        │                            │
-      │                                        │ (priority 排序)              ▼
-      │                                        │                        Normalizer
-      │                                        │                            │
-      │                                   未命中                           ▼
-      │                                        ▼                      AuditEvent ──► audit_events
-      │                                    FallbackParser
-      │                                        │
-      └────────────────────────────────────────┴──► 任何异常/失败 ──► ParseFailure ──► audit_parse_failures
+Collectors ──► Audit Ingest API (POST /api/{org_id}/audit/ingest)
+                    │ authenticate → 获得可信 org/tenant context
+                    ▼
+              ParserRegistry.detect ──► Parser.parse ──► ParsedEvent
+                    │ (priority 排序)                        │
+                    │ 未命中 → FallbackParser                 ▼
+                    │                                     Normalizer
+                    │                                          │
+                    ▼                                          ▼
+              ParseFailure ───────────► audit_parse_failures   AuditEvent
+                                                                  │
+                                                                  ▼
+                                       OpenObserve existing ingestion (bulk)
+                                                                  │
+                                                                  ▼
+                                                          audit_events stream
 ```
 
 - **Parser** 只做识别与提取，产出中间 `ParsedEvent`（字段未归一化）。
-- **Normalizer** 负责把 `ParsedEvent` 归一化为标准 `AuditEvent`（severity/result/source_type/IP/port/timestamp 等）。
-- **Dispatcher** 编排 detect → parse → normalize，任何环节失败都落到结构化 `ParseFailure`，**日志绝不静默丢失**。
-- **Fallback** 兜底：无专用 Parser 匹配时仍产出最小可用事件，不因「不认识格式」而丢弃。
+- **Normalizer** 把 `ParsedEvent` 归一化为标准 `AuditEvent`。
+- **Dispatcher** 编排 detect → parse → normalize，任何环节失败都落到结构化 `ParseFailure`。
+- **Fallback** 兜底，**日志绝不静默丢失**。
 
-> 运行位置：本框架是**纯 TypeScript、无 DOM/浏览器依赖**，可直接运行于 Node worker /
-> 摄取服务，或移植为 Rust 实现。解析逻辑严禁下沉到浏览器 Vue 组件。
+## 2. Runtime 位置（重要）
 
-## 2. Parser 生命周期
+| 层 | 位置 | 职责 |
+| --- | --- | --- |
+| **Parser Runtime（服务端）** | `src/audit_parser/`（Rust） | Parser trait / Registry / Dispatcher / Normalizer / Failure / Dummy+Fallback |
+| **数据契约（前端）** | `web/src/schemas/audit-event/`（TS） | AuditEvent 接口、severity/result/source_type 枚举、Zod 校验、fixtures |
 
-1. **detect**（廉价识别）：`detect(input): boolean` —— 判断能否处理该日志，不抛异常。
-2. **parse**（完整提取）：`parse(input): ParsedEvent` —— 提取字段，可抛异常（由 Dispatcher 捕获转 `PARSER_EXCEPTION`）。
-3. **normalize**（归一化）：由 Normalizer 把 `ParsedEvent` 转成 `AuditEvent`。
+前端**不再**包含 ParserRegistry / Dispatcher / detect / parse / Normalizer 执行逻辑
+（这些已从 `web/src/parser/` 迁移至 Rust 后端）。浏览器不在日志标准化链路中。
 
-## 3. RawLogInput
+## 3. Parser 生命周期
 
-```ts
-interface RawLogInput {
-  raw_log: string;         // 原始日志行（不可变）
-  received_at: number;     // epoch ms，采集端接收时间
-  source_type?: string;    // 源大类提示（detect/parse 可细化）
-  source_name?: string;
-  collector_id?: string;
-  tenant: TenantContext;   // 可信服务端租户上下文
-  transport?: TransportMetadata; // protocol / remote_ip / remote_port
+1. **detect**（廉价识别）：`detect(input) -> bool`，不抛错。
+2. **parse**（完整提取）：`parse(input) -> anyhow::Result<ParsedEvent>`，可抛错（Dispatcher 转 `PARSER_EXCEPTION`）。
+3. **normalize**（归一化）：由 Normalizer 转成 `AuditEvent`。
+
+## 4. Rust Parser trait
+
+```rust
+pub trait Parser: Send + Sync {
+    fn id(&self) -> &str;
+    fn name(&self) -> &str;
+    fn version(&self) -> &str;          // semver，破坏性变更主版本递增
+    fn priority(&self) -> i32;          // 越大越先尝试
+    fn supported_source_types(&self) -> &[&'static str]; // 空 = 任意
+    fn detect(&self, input: &RawLogInput) -> bool;
+    fn parse(&self, input: &RawLogInput) -> anyhow::Result<ParsedEvent>;
 }
 ```
 
-**`tenant_id` 只来自 `tenant: TenantContext`（可信服务端上下文），原始日志中的租户标识一律忽略。**
+- `detect` 与 `parse` 分离。
+- Parser **不得修改** `input.raw_log`（不变式）。
 
-## 4. Parser Interface
+## 5. ParserRegistry（Rust）
 
-```ts
-interface Parser {
-  id: string;                    // 稳定标识，如 "cisco-asa"
-  name: string;
-  version: string;               // semver，破坏性变更主版本递增
-  priority: number;              // 数值越大越先尝试
-  supportedSourceTypes: string[];// 声明的源大类，空 = 任意
-  detect(input: RawLogInput): boolean;
-  parse(input: RawLogInput): ParsedEvent;
+```rust
+impl ParserRegistry {
+    pub fn register(&mut self, parser: Arc<dyn Parser>) -> anyhow::Result<()>;
+    pub fn set_fallback(&mut self, parser: Arc<dyn Parser>);
+    pub fn lookup(&self, id: &str) -> Option<Arc<dyn Parser>>;
+    pub fn list(&self) -> Vec<Arc<dyn Parser>>;            // priority 降序
+    pub fn detect(&self, input: &RawLogInput) -> Vec<Arc<dyn Parser>>;
 }
 ```
 
-- `detect` 与 `parse` 分离：识别廉价、提取完整。
-- Parser **不得修改** `input.raw_log`（不变式），只返回新的 `ParsedEvent`。
+- 新增 Parser 只需 `register()`，**Dispatcher 主逻辑不改**。
+- **无 vendor 大型 match/switch** —— 声明式注册 + priority + detect。
 
-## 5. Parser Registry
+## 6. Normalizer（Rust）
 
-```ts
-class ParserRegistry {
-  register(parser: Parser): void;      // 重复 id 抛错
-  setFallback(parser: Parser): void;
-  lookup(id: string): Parser | undefined;
-  list(): Parser[];                    // 按 priority 降序
-  detect(input: RawLogInput): Parser[];// 命中且按 priority 排序
-  getFallback(): Parser | null;
+把 `ParsedEvent` 归一化为 `AuditEvent`，统一处理 timestamp / severity / result /
+source_type / src_ip / src_port / dst_ip / dst_port / username / hostname /
+category / event_type / action。
+
+- severity 最终只能输出 `info | low | medium | high | critical`。
+- result 最终只能输出 `success | failure | unknown`。
+- `tenant_id` 只取 `input.tenant.tenant_id`（可信），**不接受 raw_log 覆盖**。
+
+## 7. Failure model（Rust）
+
+```rust
+pub struct ParseFailure {
+    pub timestamp: i64,
+    pub raw_log: String,
+    pub source_type: Option<String>,
+    pub source_name: Option<String>,
+    pub collector_id: Option<String>,
+    pub parser_id: Option<String>,
+    pub parser_version: Option<String>,
+    pub failure_stage: FailureStage,   // detect | parse | normalize
+    pub failure_code: FailureCode,
+    pub failure_message: String,
 }
 ```
 
-- **新增 Parser 只需 `register()`，Dispatcher 无需改动**。
-- **无大型 `if vendor == … else if` switch** —— 用注册表 + priority + detect 声明式解决。
+`failure_code`：`UNSUPPORTED_FORMAT | MISSING_REQUIRED_FIELD | INVALID_TIMESTAMP |
+INVALID_IP | INVALID_ENUM | PARSER_EXCEPTION | NORMALIZATION_FAILED`。
 
-## 6. Normalizer
+Parser panic/error 一律转 `ParseFailure`，**不静默丢日志**。
 
-把 `ParsedEvent` 归一化为 `AuditEvent`，统一处理：
+## 8. Audit Ingestion API 设计（服务端入口）
 
-| 维度 | 行为 |
-| --- | --- |
-| timestamp | `parsed._timestamp ?? received_at`；无效值 → `INVALID_TIMESTAMP` 失败 |
-| severity | 别名映射 → `info/low/medium/high/critical`，未识别默认 `info` |
-| result | 别名映射 → `success/failure/unknown`，未识别默认 `unknown` |
-| source_type | 别名映射 → 标准 `SourceType`，未识别默认 `other` |
-| IP | 校验 IPv4/IPv6，无效则丢弃该字段（宽松） |
-| port | 校验 0–65535，无效则丢弃（宽松） |
-| username / hostname / category / event_type / action | 透传 |
-| event_id | 确定性哈希（tenant+source+raw+time），幂等去重 |
-| tenant_id | 仅取 `input.tenant.tenant_id`（可信） |
-| raw_log | **byte-for-byte 原样保留** |
+推荐路由（遵循 OpenObserve `context_path="/api"` + `path="/{org_id}/..."` 约定）：
 
-severity 最终只能输出 `info/low/medium/high/critical`；result 最终只能输出 `success/failure/unknown`。
+```
+POST /api/{org_id}/audit/ingest
+```
 
-## 7. Failure Handling
+流程：
 
-任何异常都不静默丢日志，统一落到 `ParseFailure`（→ `audit_parse_failures`）。
+1. **authenticate** → 从已认证请求上下文获得可信 `org_id`/`tenant_id`。
+2. 对每条 `raw_log` 构造 `RawLogInput{ raw_log, received_at, source_type?, source_name?, collector_id?, tenant }`。
+3. **Dispatcher.dispatch** → `Ok(AuditEvent)` 或 `Failure(ParseFailure)`。
+4. `Ok` 事件批量走 **OpenObserve existing ingestion**（复用现有 bulk ingest 服务）写 `audit_events`。
+5. `Failure` 走 `audit_parse_failures`。
 
-```ts
-interface ParseFailure {
-  _timestamp: number;
-  raw_log: string;
-  source_type?: string;
-  source_name?: string;
-  collector_id?: string;
-  parser_id?: string;
-  parser_version?: string;
-  failure_stage: "detect" | "parse" | "normalize";
-  failure_code: FailureCode;
-  failure_message: string;
+请求示例：
+
+```json
+{
+  "raw_logs": [
+    { "raw_log": "<134>...", "source_type": "firewall", "source_name": "edge-fw-01", "collector_id": "syslog-3" }
+  ]
 }
 ```
 
-`failure_code`：
+> **接入说明（待 W3 后续任务确认）**：本任务只设计 API 与 Runtime，不实际接线。
+> 接入现有 ingestion service 时，若需要修改 Storage/WAL/Ingester 等 protected core，
+> 将**停止并单独报告方案**，不会直接改动。现有 bulk ingestion 入口在
+> `src/core/src/logs/ingest.rs` / `bulk.rs`，属于 `src/core`（非 protected 清单），
+> 预期可通过公开函数调用复用。
 
+## 9. 新增 Parser 教程（Rust）
+
+```rust
+pub struct CiscoAsaParser;
+impl Parser for CiscoAsaParser {
+    fn id(&self) -> &str { "cisco-asa" }
+    fn name(&self) -> &str { "Cisco ASA" }
+    fn version(&self) -> &str { "1.0.0" }
+    fn priority(&self) -> i32 { 50 }
+    fn supported_source_types(&self) -> &[&'static str] { &["firewall"] }
+    fn detect(&self, i: &RawLogInput) -> bool {
+        i.source_type.as_deref() == Some("firewall") && i.raw_log.contains("%ASA-")
+    }
+    fn parse(&self, i: &RawLogInput) -> anyhow::Result<ParsedEvent> {
+        Ok(ParsedEvent {
+            parser_id: "cisco-asa".into(),
+            parser_version: "1.0.0".into(),
+            raw_log: i.raw_log.clone(),           // 原样，不改写
+            timestamp: Some(parse_asa_time(&i.raw_log)),
+            severity: Some("warning".into()),     // 未归一化，交给 Normalizer
+            result: Some("deny".into()),
+            source_type: Some("firewall".into()),
+            attributes: Some(serde_json::json!({"cisco.asa.message_id": "106023"})),
+            ..Default::default()
+        })
+    }
+}
+
+registry.register(Arc::new(CiscoAsaParser)).unwrap(); // 即插即用
 ```
-UNSUPPORTED_FORMAT      无匹配 Parser 且无 fallback
-MISSING_REQUIRED_FIELD  raw_log 为空等必填缺失
-INVALID_TIMESTAMP       时间戳无效
-INVALID_IP              IP 无效（预留/严格模式）
-INVALID_ENUM            枚举越界（预留/严格模式）
-PARSER_EXCEPTION        Parser 抛异常
-NORMALIZATION_FAILED    归一化失败（预留）
-```
-
-## 8. raw_log 不变式
-
-- `AuditEvent.raw_log` 必须与输入 `RawLogInput.raw_log` **完全一致**（byte-for-byte）。
-- 不得 trim、rewrite 或重新序列化。已由测试 #9 覆盖。
-
-## 9. 新增 Parser 教程
-
-以 `CiscoParser` 为例（本任务不实现，仅示意）：
-
-```ts
-export const CiscoAsaParser: Parser = {
-  id: "cisco-asa",
-  name: "Cisco ASA",
-  version: "1.0.0",
-  priority: 50,
-  supportedSourceTypes: ["firewall"],
-  detect: (input) => input.source_type === "firewall" && input.raw_log.includes("%ASA-"),
-  parse: (input): ParsedEvent => ({
-    parser_id: "cisco-asa",
-    parser_version: "1.0.0",
-    raw_log: input.raw_log,           // 原样，不改写
-    _timestamp: parseAsaTime(input.raw_log),
-    severity: "warning",              // 未归一化，交给 Normalizer
-    result: "deny",
-    source_type: "firewall",
-    message: "ASA deny",
-    attributes: { "cisco.asa.message_id": "106023" }, // 厂商字段进 attributes
-  }),
-};
-
-registry.register(CiscoAsaParser);    // 即插即用，Dispatcher 不变
-```
-
-要点：
-1. 实现 `Parser` 接口，`detect` 做廉价识别，`parse` 做提取。
-2. 厂商字段进 `attributes`（→ `event_attributes`），不进公共 Schema。
-3. severity/result 用源原始值，归一化交给 Normalizer。
-4. `raw_log` 原样透传。
 
 ## 10. 测试规范
 
-`web/src/parser/parser.spec.ts` 覆盖框架契约（注册/优先级/detect/parse/不匹配/fallback/异常/归一化失败/raw_log 不变式/severity/result/tenant 信任/parser 元数据/malformed 不 crash）。新增 Parser 时，为每个 Parser 补充 `detect` 与 `parse` 单测，并复用框架级测试保证契约不变。
+- 后端：`src/audit_parser/tests/parser_test.rs`（15 项，`cargo test -p audit_parser`）。
+  覆盖注册/priority/detect/parse/fallback/normalization/parser error/normalization error/
+  raw_log 不变式/tenant 覆盖拒绝/parser id+version/malformed/dispatcher 稳定。
+- 前端：`web/src/schemas/audit-event/audit-event.spec.ts`（13 项，契约层）。
+- 新增 Parser 时补充该 Parser 的 detect/parse 单测，复用框架级契约测试。

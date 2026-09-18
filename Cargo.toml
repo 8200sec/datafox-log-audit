@@ -286,6 +286,7 @@ members = [
     "src/search_service",
     "src/usage_reporting",
     "src/audit",
+    "src/audit_parser",
     "src/promql",
     "src/metrics_index",
     "src/promql_service",

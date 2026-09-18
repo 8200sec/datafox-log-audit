@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import type { Result, Severity, SourceType } from "./enums";
+import type { FailureCode, FailureStage, Result, Severity, SourceType } from "./enums";
 
 /**
  * A single normalized audit event (AuditEvent v1). One instance per source log
@@ -68,6 +68,8 @@ export interface AuditEvent {
 /**
  * A raw log line that the pipeline could not parse (target stream
  * `audit_parse_failures`). Retained so a future parser version can reprocess it.
+ * `failure_code` / `failure_stage` are produced by the SERVER-SIDE parser
+ * runtime — the frontend only reads them for display/filtering.
  */
 export interface AuditParseFailure {
   _timestamp: number;
@@ -75,9 +77,12 @@ export interface AuditParseFailure {
   /** Source category when determinable before parsing; otherwise omitted. */
   source_type?: string;
   source_name?: string;
+  collector_id?: string;
   raw_log: string;
   parser_id?: string;
   parser_version?: string;
+  failure_stage?: FailureStage;
+  failure_code?: FailureCode;
   /** Why parsing failed (no matching parser, schema error, …). */
   error_message: string;
   ingest_timestamp: number;

@@ -49,3 +49,22 @@ export const AUDIT_STREAM_NAMES = {
   /** Raw logs that failed to parse — retained for reprocessing, never dropped. */
   AUDIT_PARSE_FAILURES: "audit_parse_failures",
 } as const;
+
+/**
+ * Stable parse-failure codes produced by the server-side parser runtime
+ * (see docs/parser-framework.md). The frontend only consumes these for display
+ * and filtering — it never produces them.
+ */
+export const FAILURE_CODES = [
+  "UNSUPPORTED_FORMAT",
+  "MISSING_REQUIRED_FIELD",
+  "INVALID_TIMESTAMP",
+  "INVALID_IP",
+  "INVALID_ENUM",
+  "PARSER_EXCEPTION",
+  "NORMALIZATION_FAILED",
+] as const;
+export type FailureCode = (typeof FAILURE_CODES)[number];
+
+export const FAILURE_STAGES = ["detect", "parse", "normalize"] as const;
+export type FailureStage = (typeof FAILURE_STAGES)[number];

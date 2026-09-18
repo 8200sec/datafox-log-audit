@@ -1041,6 +1041,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "audit_parser"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8127,6 +8136,7 @@ dependencies = [
  "o2_enterprise",
  "o2_openfga",
  "openobserve-node",
+ "openobserve-synthetics",
  "opentelemetry",
  "opentelemetry-proto",
  "parking_lot 0.12.5",
@@ -8317,6 +8327,7 @@ dependencies = [
  "tokio",
  "tracing",
  "urlencoding",
+ "usage_reporting",
 ]
 
 [[package]]
