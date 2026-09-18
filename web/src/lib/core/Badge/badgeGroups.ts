@@ -217,6 +217,24 @@ export const BADGE_GROUPS = {
     },
   },
 
+  // Security-event lifecycle (DataFox Security Event Center). Shares the incident
+  // colour ramp but keeps its own wording — "open" reads "pending handling", not
+  // "unresolved", which is the security-triaging vocabulary.
+  securityEventStatus: {
+    mode: "dot",
+    shape: "pill",
+    values: {
+      open: { variant: "error-soft", labelKey: "components.badge.securityEventStatus.open" },
+      acknowledged: {
+        variant: "warning-soft",
+        labelKey: "components.badge.securityEventStatus.acknowledged",
+      },
+      resolved: { variant: "success-soft", labelKey: "components.badge.securityEventStatus.resolved" },
+      closed: { variant: "default-soft", labelKey: "components.badge.securityEventStatus.closed" },
+    },
+    fallback: { variant: "default-soft" },
+  },
+
   // Severity scale — dot, ordered hot→cold. P1–P4 are aliases so incident
   // severities (P1/P2/P3/P4) resolve to the same colours as critical→low.
   severity: {

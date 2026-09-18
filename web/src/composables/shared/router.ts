@@ -25,6 +25,7 @@ import { resolveTraceSearchMode, type TraceSearchMode } from "@/ts/interfaces/tr
 import store from "@/stores";
 import AuditHome from "@/views/AuditHome.vue";
 import ParseStatus from "@/views/ParseStatus.vue";
+import SecurityEvents from "@/views/SecurityEvents.vue";
 import ImportDashboard from "@/views/Dashboards/ImportDashboard.vue";
 import About from "@/views/About.vue";
 import ComingSoon from "@/views/ComingSoon.vue";
@@ -533,10 +534,9 @@ const useRoutes = () => {
       },
     },
     {
-      // DataFox shell placeholder — security events arrive in a later phase.
       path: "security/events",
       name: "securityEvents",
-      component: ComingSoon,
+      component: SecurityEvents,
       meta: {
         keepAlive: false,
         titleKey: "menu.securityEvents",
