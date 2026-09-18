@@ -22,15 +22,15 @@
 //! ```
 //!
 //! `audit_parser` standardizes raw logs into facts (`AuditEvent`); `audit_rule`
-//! holds the rule definition DSL, the stateless rule evaluator, and the
-//! SecurityEvent schema. Threshold window state / aggregation arrive in later
-//! tasks.
+//! holds the rule definition DSL, the stateless rule evaluator, the threshold
+//! window-state manager, and the SecurityEvent schema.
 
 mod condition;
 mod evaluator;
 mod resolve;
 mod rule;
 mod security_event;
+mod window;
 
 pub use condition::{
     Condition, FieldPath, LeafCondition, MAX_CONDITION_DEPTH, Operator, STANDARD_FIELDS,
@@ -44,4 +44,9 @@ pub use rule::{
 };
 pub use security_event::{
     Category, MAX_RELATED_EVENT_IDS, SecurityEvent, SecurityEventError, Severity, Status,
+};
+pub use window::{
+    MAX_ACTIVE_WINDOWS_GLOBAL, MAX_ACTIVE_WINDOWS_PER_TENANT, MAX_EVENTS_PER_WINDOW,
+    MAX_GROUP_VALUE_LENGTH, MAX_SAMPLE_EVENT_IDS, WindowEntry, WindowError, WindowEvaluation,
+    WindowKey, WindowLimits, WindowOutcome, WindowStateManager,
 };
