@@ -287,6 +287,7 @@ members = [
     "src/usage_reporting",
     "src/audit",
     "src/audit_parser",
+    "src/audit_rule",
     "src/promql",
     "src/metrics_index",
     "src/promql_service",
@@ -345,6 +346,7 @@ search_service = { path = "src/search_service" }
 usage_reporting = { path = "src/usage_reporting" }
 audit = { path = "src/audit" }
 audit_parser = { path = "src/audit_parser" }
+audit_rule = { path = "src/audit_rule" }
 promql = { path = "src/promql" }
 metrics_index = { path = "src/metrics_index" }
 promql-service = { path = "src/promql_service" }
