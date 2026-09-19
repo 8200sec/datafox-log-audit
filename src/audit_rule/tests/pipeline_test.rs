@@ -189,6 +189,75 @@ fn e2e_ssh_bruteforce() {
 }
 
 #[test]
+fn e2e_ssh_bruteforce_identical_raw_log() {
+    // W3-10R regression: identical raw_log lines are distinct occurrences (distinct
+    // event ids) and must each count toward the threshold — no port/message trick.
+    let (pipeline, repo) = pipeline();
+    let raw = "<34>Sep 18 15:28:31 web01 sshd[1024]: Failed password for alice from 10.10.10.7 port 55231 ssh2";
+    for _ in 0..9 {
+        let e = parse(raw, "tenant-a");
+        let outcomes = pipeline.process(&e, NOW);
+        assert!(outcomes.iter().all(|o| {
+            !matches!(
+                o,
+                DetectionOutcome::SecurityEventCreated { .. }
+                    | DetectionOutcome::SecurityEventUpdated { .. }
+            )
+        }));
+    }
+    assert_eq!(repo.list("tenant-a", 100).unwrap().len(), 0);
+
+    // 10th -> Create (count = 10).
+    let e = parse(raw, "tenant-a");
+    let outcomes = pipeline.process(&e, NOW);
+    let event_id = outcomes
+        .iter()
+        .find_map(|o| match o {
+            DetectionOutcome::SecurityEventCreated { rule_id, event_id }
+                if rule_id == "builtin.ssh_bruteforce" =>
+            {
+                Some(event_id.clone())
+            }
+            _ => None,
+        })
+        .expect("expected a created ssh_bruteforce event");
+    let ev = repo
+        .get_by_event_id("tenant-a", &event_id)
+        .unwrap()
+        .unwrap();
+    assert_eq!(ev.event_count, 10);
+
+    // 11th -> Update the SAME event (count = 11).
+    let e = parse(raw, "tenant-a");
+    let outcomes = pipeline.process(&e, NOW);
+    assert!(
+        outcomes
+            .iter()
+            .any(|o| matches!(o, DetectionOutcome::SecurityEventUpdated { .. }))
+    );
+    assert_eq!(repo.list("tenant-a", 100).unwrap().len(), 1);
+    let ev = repo
+        .get_by_event_id("tenant-a", &event_id)
+        .unwrap()
+        .unwrap();
+    assert_eq!(ev.event_count, 11);
+}
+
+#[test]
+fn pipeline_retry_same_event_id_not_double_counted() {
+    // W3-10R: the SAME AuditEvent (same event id) replayed through the pipeline
+    // counts once — retries must not inflate the window.
+    let (pipeline, repo) = pipeline();
+    let raw = "<34>Sep 18 15:28:31 web01 sshd[1024]: Failed password for alice from 10.10.10.8 port 55231 ssh2";
+    let e = parse(raw, "tenant-b");
+    for _ in 0..10 {
+        pipeline.process(&e, NOW);
+    }
+    // One occurrence -> count 1, never threshold.
+    assert_eq!(repo.list("tenant-b", 100).unwrap().len(), 0);
+}
+
+#[test]
 fn e2e_sudo_single_rule() {
     let (pipeline, repo) = pipeline();
     let raw = "<86>Sep 18 15:28:31 web01 sudo[100]: bob : TTY=pts/0 ; PWD=/home/bob ; USER=root ; COMMAND=/usr/bin/cat /etc/shadow";

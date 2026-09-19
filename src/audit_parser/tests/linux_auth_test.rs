@@ -364,6 +364,19 @@ fn event_id_generated() {
 }
 
 #[test]
+fn same_raw_log_gets_distinct_event_ids() {
+    // Two independent ingestions of an identical line are two occurrences —
+    // they must get distinct event ids (never a content fingerprint).
+    let raw = sshd("Failed password for alice from 10.0.0.1 port 55231 ssh2");
+    let e1 = dispatch_event(&raw, NOW);
+    let e2 = dispatch_event(&raw, NOW);
+    assert_ne!(e1.event_id, e2.event_id);
+    assert_eq!(e1.raw_log, raw);
+    assert_eq!(e2.raw_log, raw);
+    assert_eq!(e1.raw_log, e2.raw_log);
+}
+
+#[test]
 fn raw_log_unchanged_byte_for_byte() {
     let raw = sshd("Accepted password for alice from 10.0.0.2 port 55231 ssh2");
     let e = dispatch_event(&raw, NOW);

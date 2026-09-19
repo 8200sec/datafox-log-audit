@@ -15,22 +15,13 @@
 
 use chrono::{DateTime, NaiveDateTime};
 use serde_json::{Map, Value, json};
+use uuid::Uuid;
 
 use crate::{
     failure::{FailureCode, FailureStage, ParseFailure},
     observability::classify_parser,
     types::{AuditEvent, EventResult, ParsedEvent, RawLogInput, Severity, SourceType, Timestamp},
 };
-
-/// Deterministic djb2 event id — stable for the same tenant+source+raw+time.
-fn generate_event_id(tenant: &str, source: Option<&str>, raw: &str, ts: i64) -> String {
-    let material = format!("{}:{}:{}:{}", tenant, source.unwrap_or(""), raw, ts);
-    let mut hash: u32 = 5381;
-    for b in material.bytes() {
-        hash = hash.wrapping_mul(33).wrapping_add(b as u32);
-    }
-    format!("evt-{}-{:08x}", ts, hash)
-}
 
 fn lower(s: Option<&str>) -> Option<String> {
     s.map(|v| v.to_lowercase())
@@ -167,15 +158,9 @@ impl Normalizer {
 
         Ok(AuditEvent {
             timestamp,
-            event_id: generate_event_id(
-                &input.tenant.tenant_id,
-                parsed
-                    .source_name
-                    .as_deref()
-                    .or(input.source_name.as_deref()),
-                &parsed.raw_log,
-                timestamp,
-            ),
+            // A UUIDv7 occurrence id: unique per ingestion even for identical raw
+            // logs. Never a content hash — two independent occurrences must differ.
+            event_id: format!("evt-{}", Uuid::now_v7()),
             tenant_id: input.tenant.tenant_id.clone(),
             source_type: self.normalize_source_type(
                 parsed

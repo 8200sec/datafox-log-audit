@@ -122,9 +122,21 @@ os | firewall | router | database | web | application | network | other
 
 ## 7. `event_id` 生成规范
 
-- 必须全局唯一、稳定（同一事件重复投递产生相同 ID，以支持幂等去重）。
-- 推荐：`<parser_id> + <_timestamp> + hash(raw_log + source_name)` 的确定性哈希，或 ULID/UUIDv7。
-- 生成方：解析器/采集管线（服务端侧），不信任客户端传入值。
+- `event_id` 表示「一次具体日志 occurrence 的系统唯一 ID」，必须全局唯一。
+- 生成方：解析器/采集管线（服务端侧），不信任客户端传入值（raw log 中的 `event_id` 一律忽略）。
+- 生成算法：**UUIDv7**（`Uuid::now_v7()`，`evt-` 前缀），时间有序、全局唯一。
+- **`event_id` 不是 raw_log / 标准化字段的指纹**：两次独立 ingestion，即使 `raw_log`、
+  `_timestamp`、`hostname`、`src_ip` 等业务字段完全相同，也必须得到不同的 `event_id`。
+  换言之，`event_id_A != event_id_B`，它不得简单来自 `hash(raw_log)` 或 `hash(标准化字段)`。
+- WindowState 按 `audit_event_id` 去重：同一 `event_id` 被 Pipeline retry 两次只计一次；
+  而两次独立 ingestion（相同 raw_log）因 `event_id` 不同，各计一次。
+
+### 7.1 Ingestion retry 幂等（未来方向）
+
+- v0.3 的 `event_id` 只负责 occurrence identity，**不做 ingestion 幂等**。
+- 未来如需 collector retry 幂等，独立设计 `idempotency_key` / `source_event_id` /
+  `collector_sequence` 或等价字段，与 occurrence identity 分离。
+- 本任务暂不实现完整 ingestion idempotency。
 
 ## 8. Parser mapping 规范
 
